@@ -1,0 +1,29 @@
+apiVersion: enterprisekgateway.solo.io/v1alpha1
+kind: EnterpriseKgatewayTrafficPolicy
+metadata:
+  name: cors
+  namespace: kgateway-system
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: api-example-com
+  cors:
+    # Allow requests from this specific origin
+    allowOrigins:
+    - "https://app.example.com"
+    allowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    allowHeaders:
+    - content-type
+    - authorization
+    - x-request-id
+    exposeHeaders:
+    - x-request-id
+    # Cache preflight response for 24 hours
+    maxAge: 86400
+    allowCredentials: true

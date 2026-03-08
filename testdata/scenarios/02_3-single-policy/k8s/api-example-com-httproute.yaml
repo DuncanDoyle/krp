@@ -1,0 +1,28 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-example-com
+  namespace: kgateway-system
+  labels:
+    app: apis
+spec:
+  parentRefs:
+    - name: gw
+      namespace: kgateway-system
+  hostnames:
+    - "api.example.com"
+  rules:
+  - filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        # Add a custom header to every response from this route
+        add:
+        - name: "x-powered-by"
+          value: "kgateway"
+        # Remove the upstream's Server header to avoid leaking implementation details
+        remove:
+        - "server"
+    backendRefs:
+    - name: httpbin
+      namespace: httpbin
+      port: 8000

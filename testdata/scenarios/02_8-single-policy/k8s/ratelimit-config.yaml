@@ -1,0 +1,20 @@
+apiVersion: ratelimit.solo.io/v1alpha1
+kind: RateLimitConfig
+metadata:
+  name: ratelimit
+  namespace: kgateway-system
+spec:
+  domain: solo.io
+  raw:
+    domain: solo.io
+    setDescriptors:
+    - simpleDescriptors:
+      - key: customHeader
+      rateLimit:
+        requestsPerUnit: 3
+        unit: MINUTE
+    rateLimits:
+    - setActions:
+      - requestHeaders:
+          descriptorKey: customHeader
+          headerName: X-Custom

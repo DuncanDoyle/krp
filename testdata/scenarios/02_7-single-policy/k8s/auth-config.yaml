@@ -1,0 +1,19 @@
+# AuthConfig defines the external auth configuration.
+# This uses basic auth so no external gRPC auth server is needed —
+# kgateway handles basic auth natively.
+#
+apiVersion: extauth.solo.io/v1
+kind: AuthConfig
+metadata:
+  name: api-basic-auth
+  namespace: kgateway-system
+spec:
+  configs:
+  - basicAuth:
+      realm: "api.example.com"
+      apr:
+        users:
+          # Password: "password" (SHA1 hashed)
+          testuser:
+            salt: "TYiryv0/"
+            hashedPassword: "8BvzLUO9IfGPGGsPnAgSu1"

@@ -1,0 +1,43 @@
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: gw
+  namespace: kgateway-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  gatewayClassName: enterprise-kgateway
+  listeners:
+  - protocol: HTTPS
+    port: 443
+    name: https-api
+    hostname: api.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - kind: Secret
+          group: ""
+          name: api-example-com
+          namespace: kgateway-system
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+      - kind: HTTPRoute
+  - protocol: HTTPS
+    port: 443
+    name: https-developer
+    hostname: developer.example.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+        - kind: Secret
+          group: ""
+          name: developer-example-com
+          namespace: kgateway-system
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+      - kind: HTTPRoute
