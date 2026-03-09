@@ -87,6 +87,9 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 				continue
 			}
 			hcm := parseHCM(nf.TypedConfig)
+			if hcm == nil {
+				continue
+			}
 			// Join with RDS route config
 			if rc, ok := routeConfigs[hcm.RouteConfigName]; ok {
 				hcm.RouteConfig = rc
@@ -104,7 +107,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 func parseHCM(raw json.RawMessage) *model.HCMConfig {
 	var hcm rawHCM
 	if err := json.Unmarshal(raw, &hcm); err != nil {
-		return &model.HCMConfig{}
+		return nil
 	}
 
 	result := &model.HCMConfig{
@@ -289,6 +292,7 @@ type rawRoute struct {
 	} `json:"match"`
 	Route struct {
 		Cluster string `json:"cluster"`
+		// TODO: handle weighted_clusters for traffic-split routes (Phase 1 scope: direct cluster only)
 	} `json:"route"`
 	TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
 	Metadata             *rawRouteMetadata          `json:"metadata"`
