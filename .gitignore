@@ -1,2 +1,6 @@
 .claude/
 .worktrees/
+
+# Compiled binary
+kfp
+kfp.exe
