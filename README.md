@@ -4,13 +4,13 @@
 
 Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `kfp` makes this visible.
 
-> **Status:** Active development — Phase 1 (Envoy Config Viewer) in progress.
+> **Status:** Active development — Phase 1 (Envoy Config Viewer) complete.
 
 ---
 
 ## Features
 
-**Phase 1 (in progress) — Envoy Config Viewer**
+**Phase 1 (complete) — Envoy Config Viewer**
 - Parse a live or file-based Envoy config dump
 - Visualize the complete configuration: listeners, filter chains, HTTP filter pipeline, virtual hosts, routes, and backend clusters
 - Auto port-forward to the gateway-proxy pod (no manual setup needed)
@@ -25,11 +25,9 @@ Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) r
 
 ## Installation
 
-```bash
-go install github.com/DuncanDoyle/kfp/cmd/kfp@latest
-```
+> **Note:** The module is not yet published. Install by building from source.
 
-Or build from source:
+Build from source:
 
 ```bash
 git clone https://github.com/DuncanDoyle/kfp.git
@@ -142,9 +140,6 @@ The `testdata/scenarios/` directory contains real Kubernetes manifests and Envoy
 | `02_6-single-policy` | HTTP, CORS (EKTP) |
 | `02_7-single-policy` | HTTP, ExtAuth (EKTP) |
 | `02_8-single-policy` | HTTP, RateLimit (EKTP) |
-| `03-multi-policy` | Multiple policies on one route |
-| `04-multi-rule` | One HTTPRoute, multiple routing rules |
-| `05-multi-listener` | Gateway with HTTP + HTTPS listeners |
 
 ---
 
