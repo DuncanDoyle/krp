@@ -158,6 +158,32 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 				route.Cluster = rr.Route.Cluster
 			}
 
+			// Extract mirror clusters from request_mirror_policies
+			for _, mp := range rr.Route.RequestMirrorPolicies {
+				if mp.Cluster != "" {
+					route.MirrorClusters = append(route.MirrorClusters, mp.Cluster)
+				}
+			}
+
+			// Extract request headers to add (HTTPRouteFilter RequestHeaderModifier)
+			for _, h := range rr.RequestHeadersToAdd {
+				route.RequestHeadersToAdd = append(route.RequestHeadersToAdd, model.HeaderOperation{
+					Key:   h.Header.Key,
+					Value: h.Header.Value,
+				})
+			}
+
+			// Extract response headers to add (HTTPRouteFilter ResponseHeaderModifier)
+			for _, h := range rr.ResponseHeadersToAdd {
+				route.ResponseHeadersToAdd = append(route.ResponseHeadersToAdd, model.HeaderOperation{
+					Key:   h.Header.Key,
+					Value: h.Header.Value,
+				})
+			}
+
+			// Extract response headers to remove
+			route.ResponseHeadersToRemove = rr.ResponseHeadersToRemove
+
 			// Extract header matches
 			for _, hm := range rr.Match.Headers {
 				value := hm.StringMatch.Exact
@@ -291,11 +317,28 @@ type rawRoute struct {
 		} `json:"headers"`
 	} `json:"match"`
 	Route struct {
-		Cluster string `json:"cluster"`
+		Cluster               string `json:"cluster"`
 		// TODO: handle weighted_clusters for traffic-split routes (Phase 1 scope: direct cluster only)
+		RequestMirrorPolicies []struct {
+			Cluster string `json:"cluster"`
+		} `json:"request_mirror_policies"`
 	} `json:"route"`
-	TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
-	Metadata             *rawRouteMetadata          `json:"metadata"`
+	// Native Envoy header manipulation (used by HTTPRouteFilter RequestHeaderModifier / ResponseHeaderModifier)
+	RequestHeadersToAdd []struct {
+		Header struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"header"`
+	} `json:"request_headers_to_add"`
+	ResponseHeadersToAdd []struct {
+		Header struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"header"`
+	} `json:"response_headers_to_add"`
+	ResponseHeadersToRemove []string                   `json:"response_headers_to_remove"`
+	TypedPerFilterConfig    map[string]json.RawMessage `json:"typed_per_filter_config"`
+	Metadata                *rawRouteMetadata          `json:"metadata"`
 }
 
 type rawRouteMetadata struct {

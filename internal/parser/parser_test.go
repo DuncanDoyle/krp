@@ -186,6 +186,99 @@ func TestParse_ExtAuth(t *testing.T) {
 	t.Error("listener~80 not found")
 }
 
+func TestParse_RequestHeaderModifier(t *testing.T) {
+	data, err := os.ReadFile(testdataPath("02_2-single-policy", "envoy/config_dump.json"))
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	snapshot, err := parser.Parse(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	for _, l := range snapshot.Listeners {
+		if l.Name != "listener~80" {
+			continue
+		}
+		fc := l.FilterChains[0]
+		if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+			t.Fatal("expected HCM with RouteConfig")
+		}
+		route := fc.HCM.RouteConfig.VirtualHosts[0].Routes[0]
+		if len(route.RequestHeadersToAdd) == 0 {
+			t.Fatal("expected RequestHeadersToAdd to be populated")
+		}
+		h := route.RequestHeadersToAdd[0]
+		if h.Key != "x-holiday" || h.Value != "christmas" {
+			t.Errorf("unexpected header: %s=%s", h.Key, h.Value)
+		}
+		return
+	}
+	t.Error("listener~80 not found")
+}
+
+func TestParse_ResponseHeaderModifier(t *testing.T) {
+	data, err := os.ReadFile(testdataPath("02_3-single-policy", "envoy/config_dump.json"))
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	snapshot, err := parser.Parse(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	for _, l := range snapshot.Listeners {
+		if l.Name != "listener~80" {
+			continue
+		}
+		route := l.FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+		if len(route.ResponseHeadersToAdd) == 0 {
+			t.Fatal("expected ResponseHeadersToAdd to be populated")
+		}
+		h := route.ResponseHeadersToAdd[0]
+		if h.Key != "x-powered-by" || h.Value != "kgateway" {
+			t.Errorf("unexpected header: %s=%s", h.Key, h.Value)
+		}
+		if len(route.ResponseHeadersToRemove) == 0 {
+			t.Fatal("expected ResponseHeadersToRemove to be populated")
+		}
+		if route.ResponseHeadersToRemove[0] != "server" {
+			t.Errorf("expected 'server' removed, got %q", route.ResponseHeadersToRemove[0])
+		}
+		return
+	}
+	t.Error("listener~80 not found")
+}
+
+func TestParse_RequestMirror(t *testing.T) {
+	data, err := os.ReadFile(testdataPath("02_4-single-policy", "envoy/config_dump.json"))
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	snapshot, err := parser.Parse(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	for _, l := range snapshot.Listeners {
+		if l.Name != "listener~80" {
+			continue
+		}
+		route := l.FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+		if len(route.MirrorClusters) == 0 {
+			t.Fatal("expected MirrorClusters to be populated")
+		}
+		if route.MirrorClusters[0] != "kube_httpbin_httpbin-mirror_8000" {
+			t.Errorf("unexpected mirror cluster: %q", route.MirrorClusters[0])
+		}
+		return
+	}
+	t.Error("listener~80 not found")
+}
+
 func TestParse_MalformedJSON(t *testing.T) {
 	_, err := parser.Parse([]byte("{invalid json"))
 	if err == nil {

@@ -55,11 +55,21 @@ type VirtualHost struct {
 
 // Route is an Envoy route within a virtual host.
 type Route struct {
-	Name                 string         `json:"name"`
-	Match                RouteMatch     `json:"match"`
-	Cluster              string         `json:"cluster"`                        // backend cluster name
-	TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` // per-route filter config (Phase 2)
-	Metadata             map[string]any `json:"metadata,omitempty"`             // filter_metadata (Phase 4)
+	Name                    string           `json:"name"`
+	Match                   RouteMatch       `json:"match"`
+	Cluster                 string           `json:"cluster"`                        // backend cluster name
+	MirrorClusters          []string         `json:"mirrorClusters,omitempty"`       // request_mirror_policies cluster names
+	RequestHeadersToAdd     []HeaderOperation `json:"requestHeadersToAdd,omitempty"`  // request_headers_to_add
+	ResponseHeadersToAdd    []HeaderOperation `json:"responseHeadersToAdd,omitempty"` // response_headers_to_add
+	ResponseHeadersToRemove []string         `json:"responseHeadersToRemove,omitempty"` // response_headers_to_remove
+	TypedPerFilterConfig    map[string]any   `json:"typedPerFilterConfig,omitempty"` // per-route filter config (Phase 2)
+	Metadata                map[string]any   `json:"metadata,omitempty"`             // filter_metadata (Phase 4)
+}
+
+// HeaderOperation is a key/value header to add to a request or response.
+type HeaderOperation struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // RouteMatch describes what traffic a route matches.

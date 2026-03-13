@@ -125,7 +125,8 @@ func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int,
 func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 	if hcm.RouteConfig == nil {
 		b.WriteString(fmt.Sprintf("%s%s\n", indent, warningStyle.Render("[RDS not found: "+hcm.RouteConfigName+"]")))
-		renderHTTPFilters(b, hcm.HTTPFilters, indent)
+		// No route context here, so no per-route filter config available
+		renderHTTPFilters(b, hcm.HTTPFilters, nil, indent)
 		return
 	}
 
@@ -158,8 +159,12 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 
 			filterIndent := routeIndent + routeChildPrefix + "  "
 
-			// HTTP filters for this route
-			renderHTTPFilters(b, hcm.HTTPFilters, filterIndent)
+			// HTTP filters for this route (pass typed_per_filter_config so disabled-at-HCM
+			// filters that are active on this route are not shown as disabled)
+			renderHTTPFilters(b, hcm.HTTPFilters, route.TypedPerFilterConfig, filterIndent)
+
+			// Route-level policies (HTTPRouteFilter header/mirror configs)
+			renderRoutePolicies(b, route, filterIndent)
 
 			// Backend cluster
 			if route.Cluster != "" {
@@ -170,7 +175,10 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 	}
 }
 
-func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, indent string) {
+// renderHTTPFilters renders the HCM-level HTTP filter pipeline for a specific route.
+// typedPerFilterConfig is the route's per-filter config: if a filter is disabled at HCM
+// level but has an entry here, it is actually active on this route and shown as enabled.
+func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerFilterConfig map[string]any, indent string) {
 	if len(filters) == 0 {
 		return
 	}
@@ -183,12 +191,53 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, indent st
 			prefix = treeL
 		}
 
+		// A filter disabled at HCM level may still be active on this route via
+		// typed_per_filter_config — in that case, do not render it as disabled.
+		activeOnRoute := typedPerFilterConfig != nil && typedPerFilterConfig[f.Name] != nil
 		label := filterStyle.Render(f.Name)
-		if f.Disabled {
+		if f.Disabled && !activeOnRoute {
 			label = disabledStyle.Render(f.Name + " (disabled)")
 		}
 
 		b.WriteString(fmt.Sprintf("%s%s [%d] %s\n", indent, prefix, i+1, label))
+	}
+}
+
+// renderRoutePolicies renders route-level policy configurations that come from
+// HTTPRouteFilters (header modifiers, request mirroring) rather than HCM filters.
+func renderRoutePolicies(b *strings.Builder, route model.Route, indent string) {
+	// Collect all policy lines so we can apply the correct tree prefix to the last one.
+	type policyLine struct{ text string }
+	var lines []policyLine
+
+	for _, h := range route.RequestHeadersToAdd {
+		lines = append(lines, policyLine{fmt.Sprintf("add-req-header: %s = %s",
+			filterStyle.Render(h.Key), domainStyle.Render(h.Value))})
+	}
+	for _, h := range route.ResponseHeadersToAdd {
+		lines = append(lines, policyLine{fmt.Sprintf("add-res-header: %s = %s",
+			filterStyle.Render(h.Key), domainStyle.Render(h.Value))})
+	}
+	for _, name := range route.ResponseHeadersToRemove {
+		lines = append(lines, policyLine{fmt.Sprintf("remove-res-header: %s",
+			filterStyle.Render(name))})
+	}
+	for _, cluster := range route.MirrorClusters {
+		lines = append(lines, policyLine{fmt.Sprintf("mirror: %s",
+			clusterStyle.Render(cluster))})
+	}
+
+	if len(lines) == 0 {
+		return
+	}
+
+	b.WriteString(fmt.Sprintf("%sRoute Policies:\n", indent))
+	for i, line := range lines {
+		pfx := treeT
+		if i == len(lines)-1 {
+			pfx = treeL
+		}
+		b.WriteString(fmt.Sprintf("%s%s %s\n", indent, pfx, line.text))
 	}
 }
 
