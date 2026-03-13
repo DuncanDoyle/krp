@@ -1871,3 +1871,67 @@ kill %1
 git add .gitignore README.md
 git commit -m "docs: add README and .gitignore"
 ```
+
+---
+
+## Phase 1.1 — Patch Cycle
+
+**Issues resolved:** [#1](https://github.com/DuncanDoyle/kfp/issues/1), [#2](https://github.com/DuncanDoyle/kfp/issues/2)
+
+### Background: how Kgateway registers optional filters
+
+Kgateway installs filters like `io.solo.transformation`, `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This registers the filter in the pipeline without activating it globally. Routes that need the filter opt-in via `typed_per_filter_config` — Envoy activates the filter only for those routes. This pattern avoids per-request overhead on routes where a policy is not configured.
+
+### Fix 1 — Route-level policies (issue #1)
+
+K8S Gateway API HTTPRouteFilters for header manipulation (`RequestHeaderModifier`, `ResponseHeaderModifier`) and traffic mirroring (`RequestMirror`) do not produce HCM-level filters. Instead they translate directly into fields on the Envoy route object:
+
+| HTTPRouteFilter | Envoy route field |
+|---|---|
+| `RequestHeaderModifier` | `request_headers_to_add` |
+| `ResponseHeaderModifier` | `response_headers_to_add`, `response_headers_to_remove` |
+| `RequestMirror` | `route.request_mirror_policies` |
+
+**Model changes (`internal/model/envoy.go`):**
+
+Added to `Route`:
+```go
+MirrorClusters          []string          // from route.request_mirror_policies
+RequestHeadersToAdd     []HeaderOperation // from request_headers_to_add
+ResponseHeadersToAdd    []HeaderOperation // from response_headers_to_add
+ResponseHeadersToRemove []string          // from response_headers_to_remove
+```
+
+New type:
+```go
+type HeaderOperation struct {
+    Key   string
+    Value string
+}
+```
+
+**Parser changes (`internal/parser/parser.go`):**
+
+Extended `rawRoute` to capture `request_headers_to_add`, `response_headers_to_add`, `response_headers_to_remove`, and `route.request_mirror_policies`. `parseRouteConfig` populates the new model fields from these.
+
+**Renderer changes (`internal/renderer/renderer.go`):**
+
+Added `renderRoutePolicies()`. When a route has any of the above fields set, it emits a "Route Policies" block between the HTTP Filters and Backend lines:
+
+```
+Route Policies:
+├─ add-req-header: x-holiday = christmas
+├─ add-res-header: x-powered-by = kgateway
+├─ remove-res-header: server
+└─ mirror: kube_httpbin_httpbin-mirror_8000
+```
+
+### Fix 2 — Disabled filter display (issue #2)
+
+A filter with `Disabled: true` at HCM level is active on any route that has a matching entry in `typed_per_filter_config`. The original renderer did not check this and showed all `Disabled: true` filters as "(disabled)" regardless of route context.
+
+**Renderer change:** `renderHTTPFilters` now accepts `typedPerFilterConfig map[string]any`. When rendering filters for a specific route, a filter is only shown as "(disabled)" if `f.Disabled == true` AND `typedPerFilterConfig[f.Name]` is nil. If the route has a per-filter config entry for it, the filter renders as active.
+
+**Test coverage added:**
+- `parser_test.go`: `TestParse_RequestHeaderModifier`, `TestParse_ResponseHeaderModifier`, `TestParse_RequestMirror`
+- `renderer_test.go`: `TestRender_RoutePolicies_HeaderModifier`, `TestRender_RoutePolicies_Mirror`, `TestRender_DisabledFilter_ActiveOnRoute`

@@ -11,7 +11,3 @@ Currently, I don't think `kfp` is able to detect global policy attachment from p
 
 ## Config Mismatches
 Instead of just presenting the filterchain that is present in Envoy, and linking the filter configuration to K8S Gateway API, we should also be able to detect if an expected filter is not in the filterchain. This should be a very uncommon scenario, but it could occur in the case of bug in the translator, or an error in xDS that therefore is not loaded in the Gateway.
-
-## FilterChain printer without K8S Gateway API correlation
-I think we should have an option that JUST presents the Envoy listerner, virtualservice, route and filterchain configuration. That is what is running at runtime. The fact that we can correlate that back to the actual K8S GW API configuration is a bonus.
-

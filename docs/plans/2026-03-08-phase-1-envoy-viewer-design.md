@@ -82,8 +82,7 @@ type NetworkFilterChain struct {
 }
 
 type TLSContext struct {
-    SNIHosts   []string // SAN entries from the certificate
-    CertPath   string   // path to cert (informational)
+    SNIHosts   []string // from filter_chain_match.server_names
 }
 
 type HCMConfig struct {
@@ -104,9 +103,15 @@ type VirtualHost struct {
 }
 
 type Route struct {
-    Name    string
-    Match   RouteMatch
-    Cluster string // backend cluster name
+    Name                    string
+    Match                   RouteMatch
+    Cluster                 string           // backend cluster name
+    MirrorClusters          []string         // request_mirror_policies cluster names (Phase 1.1)
+    RequestHeadersToAdd     []HeaderOperation // request_headers_to_add (Phase 1.1)
+    ResponseHeadersToAdd    []HeaderOperation // response_headers_to_add (Phase 1.1)
+    ResponseHeadersToRemove []string         // response_headers_to_remove (Phase 1.1)
+    TypedPerFilterConfig    map[string]any   // per-route filter config (Phase 2)
+    Metadata                map[string]any   // filter_metadata (Phase 4)
 }
 
 type RouteMatch struct {
@@ -121,11 +126,25 @@ type HeaderMatch struct {
     Value string
 }
 
+// HeaderOperation is a key/value header added to a request or response.
+// Used for HTTPRouteFilter RequestHeaderModifier and ResponseHeaderModifier. (Phase 1.1)
+type HeaderOperation struct {
+    Key   string
+    Value string
+}
+
 type HTTPFilter struct {
     Name        string         // e.g. "io.solo.transformation"
     TypedConfig map[string]any // raw config, stored but not rendered in Phase 1
+    Disabled    bool           // true when filter is disabled at HCM level, enabled per-route via typed_per_filter_config
 }
 ```
+
+### Note: HCM-level disabled filters and per-route activation (Phase 1.1)
+
+Kgateway registers filters like `io.solo.transformation`, `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This means the filter is installed in the pipeline but inactive by default on every route. Individual routes opt-in by providing configuration in `typed_per_filter_config` keyed by the filter name — Envoy activates the filter only for those routes.
+
+When rendering HTTP filters for a specific route, the renderer checks `typed_per_filter_config`: if a filter is `Disabled: true` at the HCM level but has an entry in the route's `typed_per_filter_config`, it is rendered as active (not grayed out).
 
 ---
 
@@ -215,9 +234,15 @@ Phase 1 does NOT need: `controller-runtime`, `gateway-api`, `bubbletea` (static 
 Unit tests use the real config dump fixtures from `testdata/scenarios/`:
 - `01-simple/envoy/config_dump.json` — single HTTP listener, no policies
 - `02_1-single-policy/envoy/config_dump.json` — HTTPS listener with two filter chains (SNI), transformation filter
+- `02_2-single-policy/envoy/config_dump.json` — RequestHeaderModifier (route-level `request_headers_to_add`)
+- `02_3-single-policy/envoy/config_dump.json` — ResponseHeaderModifier (route-level `response_headers_to_add` / `response_headers_to_remove`)
+- `02_4-single-policy/envoy/config_dump.json` — RequestMirror (route-level `request_mirror_policies`)
 - `02_7-single-policy/envoy/config_dump.json` — ext_authz filter (multiple HCM filters)
 
 Tests verify:
 - Parser correctly extracts listeners, filter chains, HCM filters, and joins RDS
+- Parser extracts route-level header modifications and mirror policies (Phase 1.1)
 - Renderer output contains expected listener names, VirtualHost domains, filter names, cluster names
+- Renderer shows "Route Policies" block for header/mirror configs (Phase 1.1)
+- Renderer does not show a filter as "(disabled)" when it is active on the route via `typed_per_filter_config` (Phase 1.1)
 - Error cases: malformed JSON, missing RDS references
