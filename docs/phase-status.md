@@ -1,4 +1,4 @@
-Current Phase: Phase 1.1 — Envoy Config Viewer Patch Cycle
+Current Phase: Phase 1.2 — Envoy Config Viewer Patch Cycle (COMPLETE)
 
 ## Allowed Work
 - bug fixes
@@ -11,11 +11,12 @@ Current Phase: Phase 1.1 — Envoy Config Viewer Patch Cycle
 
 ## Issues (in order)
 
-- [x] **#1** — Support displaying "policies" that are configured on a route instead of in a filter
-- [x] **#2** — Transformation policy shows as "disabled"
+- [x] **#4** — URLRewrite HTTPRouteFilter not displayed in route output
+- [x] **#3** — Parser does not capture `path_separated_prefix` or `safe_regex` match types
+- [x] **#5** — Add parser tests for scenarios 02_5, 02_6, and 02_8
+- [x] **#6** — Deep-copy RouteConfig when assigning to multiple HCMs
+- [x] **e2e** — Add e2e parser tests covering the new 01_x matcher scenarios (01_1 through 01_9)
 
 ## Notes
 
-Issues #1 and #2 were resolved together:
-- **#1**: Added `RequestHeadersToAdd`, `ResponseHeadersToAdd`, `ResponseHeadersToRemove`, and `MirrorClusters` to `model.Route`. Parser extracts these from `request_headers_to_add`, `response_headers_to_add`, `response_headers_to_remove`, and `route.request_mirror_policies`. Renderer displays them under "Route Policies".
-- **#2**: `renderHTTPFilters` now receives the route's `TypedPerFilterConfig`. A filter marked `disabled: true` at HCM level is not rendered as "(disabled)" when the route has a matching entry in `typed_per_filter_config`.
+All issues resolved. See `docs/plans/phase-1.2-complete.md` for full record.

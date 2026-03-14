@@ -1,0 +1,33 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: api-example-com
+  namespace: kgateway-system
+  labels:
+    app: apis
+spec:
+  parentRefs:
+    - name: gw
+      namespace: kgateway-system
+  hostnames:
+    - "api.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api
+      headers:
+      - name: x-client-id
+        type: RegularExpression
+        value: "[a-z]+-[0-9]+"
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          # Strip /api prefix before forwarding, e.g. /api/get → /get
+          replacePrefixMatch: /
+    backendRefs:
+    - name: httpbin
+      namespace: httpbin
+      port: 8000

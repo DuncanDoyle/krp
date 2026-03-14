@@ -26,7 +26,7 @@ This is the baseline scenario — the minimum viable kgateway setup. Useful for 
 
 ```bash
 # Apply the K8S resources
-./testdata/scenarios/01-simple/k8s/setup.sh
+./testdata/scenarios/00-simple/k8s/setup.sh
 
 # Wait for the HTTPBin application to be ready
 kubectl wait --for=condition=Ready pod -l app=httpbin -n httpbin --timeout=120s
@@ -35,8 +35,8 @@ kubectl wait --for=condition=Ready pod -l app=httpbin -n httpbin --timeout=120s
 kubectl wait --for=condition=Ready pod -l gateway.networking.k8s.io/gateway-name=gw -n kgateway-system --timeout=60s
 
 # Grab the Envoy config dump: port-forward admin port to localhost, wait for readiness, dump config, then kill the port-forward
-kubectl port-forward -n kgateway-system deploy/gw 19000:19000 & sleep 2 && curl -s localhost:19000/config_dump | jq . > testdata/scenarios/01-simple/envoy/config_dump.json; kill %1
+kubectl port-forward -n kgateway-system deploy/gw 19000:19000 & sleep 2 && curl -s localhost:19000/config_dump | jq . > testdata/scenarios/00-simple/envoy/config_dump.json; kill %1
 
 # Tear down the K8S resources
-./testdata/scenarios/01-simple/k8s/setup.sh
+./testdata/scenarios/00-simple/k8s/setup.sh
 ```

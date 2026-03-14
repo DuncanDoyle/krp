@@ -55,15 +55,23 @@ type VirtualHost struct {
 
 // Route is an Envoy route within a virtual host.
 type Route struct {
-	Name                    string           `json:"name"`
-	Match                   RouteMatch       `json:"match"`
-	Cluster                 string           `json:"cluster"`                        // backend cluster name
-	MirrorClusters          []string         `json:"mirrorClusters,omitempty"`       // request_mirror_policies cluster names
-	RequestHeadersToAdd     []HeaderOperation `json:"requestHeadersToAdd,omitempty"`  // request_headers_to_add
-	ResponseHeadersToAdd    []HeaderOperation `json:"responseHeadersToAdd,omitempty"` // response_headers_to_add
-	ResponseHeadersToRemove []string         `json:"responseHeadersToRemove,omitempty"` // response_headers_to_remove
-	TypedPerFilterConfig    map[string]any   `json:"typedPerFilterConfig,omitempty"` // per-route filter config (Phase 2)
-	Metadata                map[string]any   `json:"metadata,omitempty"`             // filter_metadata (Phase 4)
+	Name                    string            `json:"name"`
+	Match                   RouteMatch        `json:"match"`
+	Cluster                 string            `json:"cluster"`                           // backend cluster name
+	Rewrite                 *RouteRewrite     `json:"rewrite,omitempty"`                 // path rewrite (URLRewrite HTTPRouteFilter)
+	MirrorClusters          []string          `json:"mirrorClusters,omitempty"`          // request_mirror_policies cluster names
+	RequestHeadersToAdd     []HeaderOperation `json:"requestHeadersToAdd,omitempty"`     // request_headers_to_add
+	ResponseHeadersToAdd    []HeaderOperation `json:"responseHeadersToAdd,omitempty"`    // response_headers_to_add
+	ResponseHeadersToRemove []string          `json:"responseHeadersToRemove,omitempty"` // response_headers_to_remove
+	TypedPerFilterConfig    map[string]any    `json:"typedPerFilterConfig,omitempty"`    // per-route filter config (Phase 2)
+	Metadata                map[string]any    `json:"metadata,omitempty"`                // filter_metadata (Phase 4)
+}
+
+// RouteRewrite captures path rewrite configuration on a route action.
+// Kgateway expresses URLRewrite HTTPRouteFilters as a regex_rewrite in the Envoy route action.
+type RouteRewrite struct {
+	RegexPattern string `json:"regexPattern"` // regex_rewrite.pattern.regex
+	Substitution string `json:"substitution"` // regex_rewrite.substitution
 }
 
 // HeaderOperation is a key/value header to add to a request or response.
@@ -74,14 +82,24 @@ type HeaderOperation struct {
 
 // RouteMatch describes what traffic a route matches.
 type RouteMatch struct {
-	Prefix  string        `json:"prefix,omitempty"`
-	Path    string        `json:"path,omitempty"`
-	Regex   string        `json:"regex,omitempty"`
-	Headers []HeaderMatch `json:"headers,omitempty"`
+	Prefix              string            `json:"prefix,omitempty"`
+	PathSeparatedPrefix string            `json:"pathSeparatedPrefix,omitempty"` // path_separated_prefix in Envoy
+	Path                string            `json:"path,omitempty"`
+	Regex               string            `json:"regex,omitempty"` // safe_regex in Envoy
+	Headers             []HeaderMatch     `json:"headers,omitempty"`
+	QueryParams         []QueryParamMatch `json:"queryParams,omitempty"`
 }
 
 // HeaderMatch is a header-based match condition on a route.
 type HeaderMatch struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+	Regex bool   `json:"regex,omitempty"` // true when value is a safe_regex pattern
+}
+
+// QueryParamMatch is a query parameter match condition on a route.
+type QueryParamMatch struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	Regex bool   `json:"regex,omitempty"` // true when value is a safe_regex pattern
 }

@@ -226,6 +226,12 @@ func renderRoutePolicies(b *strings.Builder, route model.Route, indent string) {
 		lines = append(lines, policyLine{fmt.Sprintf("mirror: %s",
 			clusterStyle.Render(cluster))})
 	}
+	// URLRewrite HTTPRouteFilter — expressed as regex_rewrite in Envoy route action
+	if route.Rewrite != nil {
+		lines = append(lines, policyLine{fmt.Sprintf("rewrite: %s → %s",
+			filterStyle.Render(route.Rewrite.RegexPattern),
+			domainStyle.Render(route.Rewrite.Substitution))})
+	}
 
 	if len(lines) == 0 {
 		return
@@ -246,6 +252,10 @@ func formatMatch(m model.RouteMatch) string {
 	if m.Prefix != "" {
 		parts = append(parts, m.Prefix+" (prefix)")
 	}
+	if m.PathSeparatedPrefix != "" {
+		// path_separated_prefix behaves like prefix but treats / as a segment boundary
+		parts = append(parts, m.PathSeparatedPrefix+" (path-prefix)")
+	}
 	if m.Path != "" {
 		parts = append(parts, m.Path+" (exact)")
 	}
@@ -253,7 +263,18 @@ func formatMatch(m model.RouteMatch) string {
 		parts = append(parts, m.Regex+" (regex)")
 	}
 	for _, h := range m.Headers {
-		parts = append(parts, fmt.Sprintf("header(%s=%s)", h.Name, h.Value))
+		if h.Regex {
+			parts = append(parts, fmt.Sprintf("header(%s~%s)", h.Name, h.Value))
+		} else {
+			parts = append(parts, fmt.Sprintf("header(%s=%s)", h.Name, h.Value))
+		}
+	}
+	for _, qp := range m.QueryParams {
+		if qp.Regex {
+			parts = append(parts, fmt.Sprintf("query(%s~%s)", qp.Name, qp.Value))
+		} else {
+			parts = append(parts, fmt.Sprintf("query(%s=%s)", qp.Name, qp.Value))
+		}
 	}
 	if len(parts) == 0 {
 		return "/"

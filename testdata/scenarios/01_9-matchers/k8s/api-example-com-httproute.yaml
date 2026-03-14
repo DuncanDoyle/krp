@@ -1,0 +1,34 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: api-example-com
+  namespace: kgateway-system
+  labels:
+    app: apis
+spec:
+  parentRefs:
+    - name: gw
+      namespace: kgateway-system
+  hostnames:
+    - "api.example.com"
+  rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /api/v1/search
+      method: GET
+      queryParams:
+      - name: q
+        type: Exact
+        value: hello
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          # Rewrite the exact matched path to httpbin's /get endpoint
+          replaceFullPath: /get
+    backendRefs:
+    - name: httpbin
+      namespace: httpbin
+      port: 8000

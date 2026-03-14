@@ -14,7 +14,7 @@ func testdataPath(scenario, file string) string {
 }
 
 func TestParse_SimpleHTTP(t *testing.T) {
-	data, err := os.ReadFile(testdataPath("01-simple", "envoy/config_dump.json"))
+	data, err := os.ReadFile(testdataPath("00-simple", "envoy/config_dump.json"))
 	if err != nil {
 		t.Fatalf("reading fixture: %v", err)
 	}
@@ -273,6 +273,106 @@ func TestParse_RequestMirror(t *testing.T) {
 		}
 		if route.MirrorClusters[0] != "kube_httpbin_httpbin-mirror_8000" {
 			t.Errorf("unexpected mirror cluster: %q", route.MirrorClusters[0])
+		}
+		return
+	}
+	t.Error("listener~80 not found")
+}
+
+func TestParse_URLRewrite(t *testing.T) {
+	data, err := os.ReadFile(testdataPath("02_5-single-policy", "envoy/config_dump.json"))
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	snapshot, err := parser.Parse(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	for _, l := range snapshot.Listeners {
+		if l.Name != "listener~80" {
+			continue
+		}
+		fc := l.FilterChains[0]
+		if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+			t.Fatal("expected HCM with RouteConfig")
+		}
+		route := fc.HCM.RouteConfig.VirtualHosts[0].Routes[0]
+
+		// path_separated_prefix is how kgateway represents a PathPrefix match in Envoy
+		if route.Match.PathSeparatedPrefix == "" {
+			t.Error("expected PathSeparatedPrefix to be populated for URLRewrite scenario")
+		}
+		if route.Match.PathSeparatedPrefix != "/api/v1" {
+			t.Errorf("expected PathSeparatedPrefix '/api/v1', got %q", route.Match.PathSeparatedPrefix)
+		}
+
+		// regex_rewrite is how kgateway represents a URLRewrite HTTPRouteFilter in Envoy
+		if route.Rewrite == nil {
+			t.Fatal("expected Rewrite to be populated for URLRewrite scenario")
+		}
+		if route.Rewrite.Substitution != "/" {
+			t.Errorf("expected rewrite substitution '/', got %q", route.Rewrite.Substitution)
+		}
+		return
+	}
+	t.Error("listener~80 not found")
+}
+
+func TestParse_CORSPolicy(t *testing.T) {
+	data, err := os.ReadFile(testdataPath("02_6-single-policy", "envoy/config_dump.json"))
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	snapshot, err := parser.Parse(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	for _, l := range snapshot.Listeners {
+		if l.Name != "listener~80" {
+			continue
+		}
+		route := l.FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+
+		// CORS policy appears as typed_per_filter_config on the route
+		if len(route.TypedPerFilterConfig) == 0 {
+			t.Fatal("expected TypedPerFilterConfig to be populated for CORS scenario")
+		}
+		if _, ok := route.TypedPerFilterConfig["envoy.filters.http.cors"]; !ok {
+			t.Error("expected 'envoy.filters.http.cors' entry in TypedPerFilterConfig")
+		}
+		return
+	}
+	t.Error("listener~80 not found")
+}
+
+func TestParse_RateLimit(t *testing.T) {
+	data, err := os.ReadFile(testdataPath("02_8-single-policy", "envoy/config_dump.json"))
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+
+	snapshot, err := parser.Parse(data)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	for _, l := range snapshot.Listeners {
+		if l.Name != "listener~80" {
+			continue
+		}
+		route := l.FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+
+		// Rate limit policy appears as typed_per_filter_config on the route
+		if len(route.TypedPerFilterConfig) == 0 {
+			t.Fatal("expected TypedPerFilterConfig to be populated for rate limit scenario")
+		}
+		// kgateway uses "ratelimit_ee/default" as the filter name key
+		if _, ok := route.TypedPerFilterConfig["ratelimit_ee/default"]; !ok {
+			t.Error("expected 'ratelimit_ee/default' entry in TypedPerFilterConfig")
 		}
 		return
 	}

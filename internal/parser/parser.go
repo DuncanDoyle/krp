@@ -90,9 +90,11 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 			if hcm == nil {
 				continue
 			}
-			// Join with RDS route config
+			// Join with RDS route config. Deep-copy so each HCM owns its RouteConfig
+			// and mutations in future phases cannot corrupt other filter chains sharing
+			// the same route_config_name.
 			if rc, ok := routeConfigs[hcm.RouteConfigName]; ok {
-				hcm.RouteConfig = rc
+				hcm.RouteConfig = cloneRouteConfig(rc)
 			}
 			nfc.HCM = hcm
 		}
@@ -148,14 +150,24 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 			route := model.Route{
 				Name: rr.Name,
 				Match: model.RouteMatch{
-					Prefix: rr.Match.Prefix,
-					Path:   rr.Match.Path,
+					Prefix:              rr.Match.Prefix,
+					PathSeparatedPrefix: rr.Match.PathSeparatedPrefix,
+					Path:                rr.Match.Path,
+					Regex:               rr.Match.SafeRegex.Regex,
 				},
 			}
 
 			// Extract cluster from the route action
 			if rr.Route.Cluster != "" {
 				route.Cluster = rr.Route.Cluster
+			}
+
+			// Extract URLRewrite from regex_rewrite on the route action
+			if rr.Route.RegexRewrite.Pattern.Regex != "" {
+				route.Rewrite = &model.RouteRewrite{
+					RegexPattern: rr.Route.RegexRewrite.Pattern.Regex,
+					Substitution: rr.Route.RegexRewrite.Substitution,
+				}
 			}
 
 			// Extract mirror clusters from request_mirror_policies
@@ -184,13 +196,36 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 			// Extract response headers to remove
 			route.ResponseHeadersToRemove = rr.ResponseHeadersToRemove
 
-			// Extract header matches
+			// Extract header matches (Exact and RegularExpression)
 			for _, hm := range rr.Match.Headers {
-				value := hm.StringMatch.Exact
-				route.Match.Headers = append(route.Match.Headers, model.HeaderMatch{
-					Name:  hm.Name,
-					Value: value,
-				})
+				if hm.StringMatch.SafeRegex.Regex != "" {
+					route.Match.Headers = append(route.Match.Headers, model.HeaderMatch{
+						Name:  hm.Name,
+						Value: hm.StringMatch.SafeRegex.Regex,
+						Regex: true,
+					})
+				} else {
+					route.Match.Headers = append(route.Match.Headers, model.HeaderMatch{
+						Name:  hm.Name,
+						Value: hm.StringMatch.Exact,
+					})
+				}
+			}
+
+			// Extract query parameter matches (Exact and RegularExpression)
+			for _, qp := range rr.Match.QueryParameters {
+				if qp.StringMatch.SafeRegex.Regex != "" {
+					route.Match.QueryParams = append(route.Match.QueryParams, model.QueryParamMatch{
+						Name:  qp.Name,
+						Value: qp.StringMatch.SafeRegex.Regex,
+						Regex: true,
+					})
+				} else {
+					route.Match.QueryParams = append(route.Match.QueryParams, model.QueryParamMatch{
+						Name:  qp.Name,
+						Value: qp.StringMatch.Exact,
+					})
+				}
 			}
 
 			// Store per-filter config and metadata for later phases
@@ -307,21 +342,46 @@ type rawVirtualHost struct {
 type rawRoute struct {
 	Name  string `json:"name"`
 	Match struct {
-		Prefix  string `json:"prefix"`
-		Path    string `json:"path"`
+		Prefix              string `json:"prefix"`
+		PathSeparatedPrefix string `json:"path_separated_prefix"`
+		Path                string `json:"path"`
+		// safe_regex is used for RegularExpression path matchers from the K8S Gateway API
+		SafeRegex struct {
+			Regex string `json:"regex"`
+		} `json:"safe_regex"`
 		Headers []struct {
 			Name        string `json:"name"`
 			StringMatch struct {
-				Exact string `json:"exact"`
+				Exact    string `json:"exact"`
+				SafeRegex struct {
+					Regex string `json:"regex"`
+				} `json:"safe_regex"`
 			} `json:"string_match"`
 		} `json:"headers"`
+		// query_parameters captures K8S Gateway API QueryParam matchers
+		QueryParameters []struct {
+			Name        string `json:"name"`
+			StringMatch struct {
+				Exact    string `json:"exact"`
+				SafeRegex struct {
+					Regex string `json:"regex"`
+				} `json:"safe_regex"`
+			} `json:"string_match"`
+		} `json:"query_parameters"`
 	} `json:"match"`
 	Route struct {
-		Cluster               string `json:"cluster"`
+		Cluster string `json:"cluster"`
 		// TODO: handle weighted_clusters for traffic-split routes (Phase 1 scope: direct cluster only)
 		RequestMirrorPolicies []struct {
 			Cluster string `json:"cluster"`
 		} `json:"request_mirror_policies"`
+		// regex_rewrite captures URLRewrite HTTPRouteFilter path rewrites
+		RegexRewrite struct {
+			Pattern struct {
+				Regex string `json:"regex"`
+			} `json:"pattern"`
+			Substitution string `json:"substitution"`
+		} `json:"regex_rewrite"`
 	} `json:"route"`
 	// Native Envoy header manipulation (used by HTTPRouteFilter RequestHeaderModifier / ResponseHeaderModifier)
 	RequestHeadersToAdd []struct {
@@ -343,4 +403,39 @@ type rawRoute struct {
 
 type rawRouteMetadata struct {
 	FilterMetadata map[string]json.RawMessage `json:"filter_metadata"`
+}
+
+// cloneRouteConfig returns a deep copy of rc so each HCM owns its own RouteConfig.
+// This prevents mutations in later phases from corrupting filter chains that share
+// the same route_config_name.
+func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
+	clone := &model.RouteConfig{
+		Name:         rc.Name,
+		VirtualHosts: make([]model.VirtualHost, len(rc.VirtualHosts)),
+	}
+	for i, vh := range rc.VirtualHosts {
+		cloneVH := model.VirtualHost{
+			Name:    vh.Name,
+			Domains: append([]string(nil), vh.Domains...),
+			Routes:  make([]model.Route, len(vh.Routes)),
+		}
+		for j, r := range vh.Routes {
+			cloneRoute := r // copy all scalar fields
+			// Deep-copy slice fields
+			cloneRoute.MirrorClusters = append([]string(nil), r.MirrorClusters...)
+			cloneRoute.RequestHeadersToAdd = append([]model.HeaderOperation(nil), r.RequestHeadersToAdd...)
+			cloneRoute.ResponseHeadersToAdd = append([]model.HeaderOperation(nil), r.ResponseHeadersToAdd...)
+			cloneRoute.ResponseHeadersToRemove = append([]string(nil), r.ResponseHeadersToRemove...)
+			cloneRoute.Match.Headers = append([]model.HeaderMatch(nil), r.Match.Headers...)
+			cloneRoute.Match.QueryParams = append([]model.QueryParamMatch(nil), r.Match.QueryParams...)
+			// Rewrite is a pointer — copy the struct value if set
+			if r.Rewrite != nil {
+				rw := *r.Rewrite
+				cloneRoute.Rewrite = &rw
+			}
+			cloneVH.Routes[j] = cloneRoute
+		}
+		clone.VirtualHosts[i] = cloneVH
+	}
+	return clone
 }
