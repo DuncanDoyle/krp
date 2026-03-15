@@ -1,4 +1,4 @@
-Current Phase: Phase 1.3 — Envoy Config Viewer Patch Cycle (COMPLETE)
+Current Phase: Phase 1.4 — Envoy Config Viewer Patch Cycle (COMPLETE)
 
 ## Allowed Work
 - bug fixes
@@ -11,12 +11,12 @@ Current Phase: Phase 1.3 — Envoy Config Viewer Patch Cycle (COMPLETE)
 
 ## Issues (in order)
 
-- [x] **#7** — Design doc stale: model, scenarios, and test strategy out of date
-- [x] **#8** — cloneRouteConfig does not deep-copy TypedPerFilterConfig or Metadata maps
-- [x] **#9** — No renderer test for URLRewrite (rewrite route policy)
-- [x] **#10** — No renderer tests for new match types (path-prefix, regex, header regex, query params)
-- [x] **#14** — Roadmap phase status and scenario table are stale
+- [x] **#5** — Add parser tests for scenarios 02_5, 02_6, and 02_8
+  (implementation was already in Phase 1.2 / 106ff8f — verified and closed)
+- [x] **#6** — Deep-copy RouteConfig when assigning to multiple HCMs
+  (implementation was already in Phase 1.2 + 1.3 — verified and closed)
+- [x] **#12** — Parser silently drops malformed config sections
 
 ## Notes
 
-All issues resolved. See `docs/plans/phase-1.3-complete.md` for full record.
+All issues resolved. See `docs/plans/phase-1.4-complete.md` for full record.

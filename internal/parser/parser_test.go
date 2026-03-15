@@ -19,10 +19,11 @@ func TestParse_SimpleHTTP(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	// Should have at least one dynamic listener
 	if len(snapshot.Listeners) == 0 {
@@ -99,10 +100,11 @@ func TestParse_HTTPSWithSNI(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~443" {
@@ -155,10 +157,11 @@ func TestParse_ExtAuth(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -192,10 +195,11 @@ func TestParse_RequestHeaderModifier(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -224,10 +228,11 @@ func TestParse_ResponseHeaderModifier(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -258,10 +263,11 @@ func TestParse_RequestMirror(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -285,10 +291,11 @@ func TestParse_URLRewrite(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -326,10 +333,11 @@ func TestParse_CORSPolicy(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -355,10 +363,11 @@ func TestParse_RateLimit(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
+	snapshot := result.Snapshot
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -386,12 +395,53 @@ func TestParse_MalformedJSON(t *testing.T) {
 	}
 }
 
+// TestParse_MalformedSection verifies that a config section that fails to unmarshal
+// produces a warning in ParseResult.Warnings instead of being silently dropped.
+func TestParse_MalformedSection(t *testing.T) {
+	// A valid config dump envelope containing one section with the correct @type
+	// but structurally invalid content (wrong field types).
+	input := `{
+		"configs": [
+			{
+				"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+				"dynamic_listeners": "THIS_SHOULD_BE_AN_ARRAY"
+			}
+		]
+	}`
+
+	result, err := parser.Parse([]byte(input))
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatal("expected at least one warning for the malformed ListenersConfigDump section")
+	}
+	if len(result.Snapshot.Listeners) != 0 {
+		t.Errorf("expected 0 listeners from malformed section, got %d", len(result.Snapshot.Listeners))
+	}
+}
+
+// TestParse_WarningForUnreadableType verifies that a section whose @type cannot be
+// read produces a warning.
+func TestParse_WarningForUnreadableType(t *testing.T) {
+	// A config entry that is not a valid JSON object (cannot read @type).
+	input := `{"configs": ["not-an-object"]}`
+
+	result, err := parser.Parse([]byte(input))
+	if err != nil {
+		t.Fatalf("unexpected hard error: %v", err)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatal("expected a warning for the config section with unreadable @type")
+	}
+}
+
 func TestParse_EmptyConfigs(t *testing.T) {
-	snapshot, err := parser.Parse([]byte(`{"configs": []}`))
+	result, err := parser.Parse([]byte(`{"configs": []}`))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(snapshot.Listeners) != 0 {
-		t.Errorf("expected 0 listeners, got %d", len(snapshot.Listeners))
+	if len(result.Snapshot.Listeners) != 0 {
+		t.Errorf("expected 0 listeners, got %d", len(result.Snapshot.Listeners))
 	}
 }

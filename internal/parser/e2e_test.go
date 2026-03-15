@@ -34,10 +34,11 @@ func TestParseAllScenarios(t *testing.T) {
 		}
 
 		t.Run(entry.Name(), func(t *testing.T) {
-			snapshot, err := parser.Parse(data)
+			result, err := parser.Parse(data)
 			if err != nil {
 				t.Fatalf("parse failed: %v", err)
 			}
+			snapshot := result.Snapshot
 
 			if len(snapshot.Listeners) == 0 {
 				t.Error("expected at least one listener")
@@ -92,11 +93,11 @@ func parseMatcherScenario(t *testing.T, scenario string) *model.EnvoySnapshot {
 	if err != nil {
 		t.Skipf("config dump not yet collected for %s (run setup.sh then collect): %v", scenario, err)
 	}
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	return snapshot
+	return result.Snapshot
 }
 
 // TestMatcherScenario_01_1_PathPrefix verifies that a PathPrefix matcher

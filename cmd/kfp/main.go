@@ -74,12 +74,17 @@ func runDump(cmd *cobra.Command, args []string) error {
 	}
 
 	// Parse the config dump into an EnvoySnapshot
-	snapshot, err := parser.Parse(data)
+	result, err := parser.Parse(data)
 	if err != nil {
 		return err
 	}
 
+	// Print any non-fatal parse warnings to stderr so users know if sections were skipped
+	for _, w := range result.Warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
+
 	// Render and print
-	fmt.Println(renderer.Render(snapshot))
+	fmt.Println(renderer.Render(result.Snapshot))
 	return nil
 }

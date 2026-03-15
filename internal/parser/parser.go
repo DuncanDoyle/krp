@@ -8,21 +8,33 @@ import (
 	"github.com/DuncanDoyle/kfp/internal/model"
 )
 
-// Parse takes raw Envoy /config_dump JSON bytes and returns an EnvoySnapshot.
-// It joins listeners with their RDS route configs by matching route_config_name.
-func Parse(data []byte) (*model.EnvoySnapshot, error) {
+// ParseResult holds the parsed EnvoySnapshot and any non-fatal warnings collected
+// during parsing (e.g. malformed config sections that were skipped).
+// Warnings are surfaced to the user so that silently dropped sections are visible.
+type ParseResult struct {
+	Snapshot *model.EnvoySnapshot
+	Warnings []string
+}
+
+// Parse takes raw Envoy /config_dump JSON bytes and returns a ParseResult.
+// Non-fatal errors (e.g. a single malformed config section) are collected as
+// warnings rather than aborting the parse, so the caller receives a best-effort
+// snapshot alongside a description of what was skipped.
+func Parse(data []byte) (ParseResult, error) {
 	var dump configDump
 	if err := json.Unmarshal(data, &dump); err != nil {
-		return nil, fmt.Errorf("parsing config dump JSON: %w", err)
+		return ParseResult{}, fmt.Errorf("parsing config dump JSON: %w", err)
 	}
 
-	// Parse each config section by @type
+	// Parse each config section by @type, collecting warnings for any that fail.
 	var listeners []rawListener
 	routeConfigs := map[string]*model.RouteConfig{} // keyed by name
+	var warnings []string
 
 	for _, raw := range dump.Configs {
 		var typed typedConfig
 		if err := json.Unmarshal(raw, &typed); err != nil {
+			warnings = append(warnings, fmt.Sprintf("skipped config section: cannot read @type: %v", err))
 			continue
 		}
 
@@ -30,6 +42,7 @@ func Parse(data []byte) (*model.EnvoySnapshot, error) {
 		case "type.googleapis.com/envoy.admin.v3.ListenersConfigDump":
 			var ld listenersConfigDump
 			if err := json.Unmarshal(raw, &ld); err != nil {
+				warnings = append(warnings, fmt.Sprintf("skipped ListenersConfigDump: %v", err))
 				continue
 			}
 			listeners = ld.DynamicListeners
@@ -37,6 +50,7 @@ func Parse(data []byte) (*model.EnvoySnapshot, error) {
 		case "type.googleapis.com/envoy.admin.v3.RoutesConfigDump":
 			var rd routesConfigDump
 			if err := json.Unmarshal(raw, &rd); err != nil {
+				warnings = append(warnings, fmt.Sprintf("skipped RoutesConfigDump: %v", err))
 				continue
 			}
 			for _, drc := range rd.DynamicRouteConfigs {
@@ -53,7 +67,7 @@ func Parse(data []byte) (*model.EnvoySnapshot, error) {
 		snapshot.Listeners = append(snapshot.Listeners, l)
 	}
 
-	return snapshot, nil
+	return ParseResult{Snapshot: snapshot, Warnings: warnings}, nil
 }
 
 // parseListener converts a raw dynamic listener into the model.Listener,
