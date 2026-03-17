@@ -1,3 +1,8 @@
+// Package envoy provides utilities for reaching a live Envoy admin API.
+// [FetchConfigDump] fetches the /config_dump endpoint over plain HTTP.
+// [PortForwardToGateway] creates a kubectl port-forward tunnel to the
+// gateway-proxy pod so that FetchConfigDump can be called without direct
+// network access to the pod.
 package envoy
 
 import (

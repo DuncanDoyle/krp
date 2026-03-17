@@ -3,11 +3,12 @@
 //
 // Usage:
 //
-//	kfp dump --file <path>                                        # parse a local config_dump JSON file
-//	kfp dump --gateway <name> -n <ns>                             # live fetch via port-forward
-//	kfp dump --gateway <name> -n <ns> --context ctx               # same, with explicit kubeconfig context
-//	kfp dump --file <path> --httproute <name> --httproute-namespace <ns>          # filter by HTTPRoute
-//	kfp dump --file <path> --httproute <name> --httproute-namespace <ns> --rule 0 # filter by rule index
+//	kfp dump --file <path>                                                                     # parse a local config_dump JSON file
+//	kfp dump --gateway <name> -n <ns>                                                          # live fetch via port-forward to gateway-proxy pod
+//	kfp dump --deployment <name> -n <ns>                                                       # live fetch via port-forward to any pod in Deployment
+//	kfp dump --gateway <name> -n <ns> --context ctx                                            # same, with an explicit kubeconfig context
+//	kfp dump --file <path> --httproute <name> --httproute-namespace <ns>                       # filter by HTTPRoute
+//	kfp dump --file <path> --httproute <name> --httproute-namespace <ns> --rule 0              # filter by rule index
 package main
 
 import (
@@ -36,9 +37,10 @@ func main() {
 
 	// Config source — exactly one must be provided.
 	dump.Flags().String("file", "", "Path to an Envoy config_dump JSON file")
-	dump.Flags().String("gateway", "", "Gateway name (fetches config via port-forward to gateway-proxy pod)")
-	dump.Flags().StringP("namespace", "n", "default", "Namespace of the Gateway (used with --gateway)")
-	dump.Flags().String("context", "", "Kubeconfig context (used with --gateway, default: current context)")
+	dump.Flags().String("gateway", "", "Gateway name (port-forward to gateway-proxy pod via gateway label)")
+	dump.Flags().String("deployment", "", "Deployment name (port-forward to any ready pod in the Deployment)")
+	dump.Flags().StringP("namespace", "n", "default", "Namespace (used with --gateway or --deployment)")
+	dump.Flags().String("context", "", "Kubeconfig context (used with --gateway or --deployment, default: current context)")
 
 	// HTTPRoute filter — narrows the output to routes belonging to one HTTPRoute.
 	// --httproute-namespace is intentionally separate from -n/--namespace because
@@ -61,6 +63,7 @@ func main() {
 func runDump(cmd *cobra.Command, args []string) error {
 	file, _ := cmd.Flags().GetString("file")
 	gateway, _ := cmd.Flags().GetString("gateway")
+	deployment, _ := cmd.Flags().GetString("deployment")
 	namespace, _ := cmd.Flags().GetString("namespace")
 	kubeContext, _ := cmd.Flags().GetString("context")
 
@@ -68,12 +71,15 @@ func runDump(cmd *cobra.Command, args []string) error {
 	httprouteNamespace, _ := cmd.Flags().GetString("httproute-namespace")
 	ruleIndex, _ := cmd.Flags().GetInt("rule")
 
-	// Validate config source flags.
-	if file == "" && gateway == "" {
-		return fmt.Errorf("specify either --file <path> or --gateway <name>")
+	// Exactly one source must be specified; --gateway and --deployment are mutually exclusive.
+	if file == "" && gateway == "" && deployment == "" {
+		return fmt.Errorf("specify one of --file <path>, --gateway <name>, or --deployment <name>")
 	}
-	if file != "" && gateway != "" {
-		return fmt.Errorf("--file and --gateway are mutually exclusive")
+	if file != "" && (gateway != "" || deployment != "") {
+		return fmt.Errorf("--file cannot be combined with --gateway or --deployment")
+	}
+	if gateway != "" && deployment != "" {
+		return fmt.Errorf("--gateway and --deployment are mutually exclusive")
 	}
 
 	// Validate HTTPRoute filter flags.
@@ -104,7 +110,13 @@ func runDump(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "Connecting to Envoy admin API...")
 		ctx := context.Background()
-		pf, err := envoy.PortForwardToGateway(ctx, gateway, namespace, kubeContext)
+
+		var pf *envoy.PortForwardResult
+		if gateway != "" {
+			pf, err = envoy.PortForwardToGateway(ctx, gateway, namespace, kubeContext)
+		} else {
+			pf, err = envoy.PortForwardToDeployment(ctx, deployment, namespace, kubeContext)
+		}
 		if err != nil {
 			return fmt.Errorf("cannot reach Envoy admin API: %w", err)
 		}

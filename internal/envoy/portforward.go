@@ -20,12 +20,31 @@ const envoyAdminPort = 19000
 // PortForwardResult holds the local address and a stop function.
 type PortForwardResult struct {
 	LocalAddr string // e.g. "http://localhost:12345"
-	Stop      func()
+	Stop      func() // Stop closes the port-forward tunnel; must be called when done.
 }
 
-// PortForwardToGateway finds a ready gateway-proxy pod and opens a port-forward
-// to the Envoy admin port. Caller must call Stop() when done.
+// podFinder is a function that resolves a pod name to port-forward to.
+type podFinder func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error)
+
+// PortForwardToGateway finds a ready gateway-proxy pod by Gateway name and opens
+// a port-forward to the Envoy admin port. Caller must call Stop() when done.
 func PortForwardToGateway(ctx context.Context, gatewayName, namespace, kubeContext string) (*PortForwardResult, error) {
+	return portForward(ctx, namespace, kubeContext, func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error) {
+		return findGatewayProxyPod(ctx, kc, gatewayName, namespace)
+	})
+}
+
+// PortForwardToDeployment finds a ready pod owned by the named Deployment and opens
+// a port-forward to the Envoy admin port. Caller must call Stop() when done.
+func PortForwardToDeployment(ctx context.Context, deploymentName, namespace, kubeContext string) (*PortForwardResult, error) {
+	return portForward(ctx, namespace, kubeContext, func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error) {
+		return findDeploymentPod(ctx, kc, deploymentName, namespace)
+	})
+}
+
+// portForward is the shared implementation: it builds a K8S client, resolves a pod
+// via the provided podFinder, and opens a port-forward to the Envoy admin port.
+func portForward(ctx context.Context, namespace, kubeContext string, finder podFinder) (*PortForwardResult, error) {
 	cfg, err := buildRestConfig(kubeContext)
 	if err != nil {
 		return nil, err
@@ -36,7 +55,7 @@ func PortForwardToGateway(ctx context.Context, gatewayName, namespace, kubeConte
 		return nil, fmt.Errorf("creating kubernetes client: %w", err)
 	}
 
-	podName, err := findGatewayProxyPod(ctx, kc, gatewayName, namespace)
+	podName, err := finder(ctx, kc, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +107,9 @@ func PortForwardToGateway(ctx context.Context, gatewayName, namespace, kubeConte
 	}, nil
 }
 
+// buildRestConfig loads the kubeconfig from the default discovery chain
+// (KUBECONFIG env var → ~/.kube/config) and optionally overrides the active
+// context. An empty kubeContext string leaves the current context unchanged.
 func buildRestConfig(kubeContext string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
@@ -104,7 +126,8 @@ func buildRestConfig(kubeContext string) (*rest.Config, error) {
 	return cfg, nil
 }
 
-// findGatewayProxyPod finds the first ready pod for a kgateway Gateway.
+// findGatewayProxyPod finds the first ready pod for a kgateway Gateway using the
+// standard Gateway API pod label (gateway.networking.k8s.io/gateway-name).
 func findGatewayProxyPod(ctx context.Context, kc kubernetes.Interface, gatewayName, namespace string) (string, error) {
 	selector := fmt.Sprintf("gateway.networking.k8s.io/gateway-name=%s", gatewayName)
 	pods, err := kc.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
@@ -125,6 +148,37 @@ func findGatewayProxyPod(ctx context.Context, kc kubernetes.Interface, gatewayNa
 	)
 }
 
+// findDeploymentPod finds the first ready pod owned by the named Deployment by
+// reading the Deployment's pod selector and listing matching pods.
+func findDeploymentPod(ctx context.Context, kc kubernetes.Interface, deploymentName, namespace string) (string, error) {
+	dep, err := kc.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("getting deployment %s/%s: %w", namespace, deploymentName, err)
+	}
+
+	selector := metav1.FormatLabelSelector(dep.Spec.Selector)
+
+	pods, err := kc.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return "", fmt.Errorf("listing pods for deployment %s/%s: %w", namespace, deploymentName, err)
+	}
+
+	for _, pod := range pods.Items {
+		if isPodReady(&pod) {
+			return pod.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf(
+		"no ready pod found for Deployment %s/%s\n"+
+			"Hint: ensure the deployment pods are running and you have RBAC permissions for 'get deployments', 'get pods' and 'create pods/portforward' in namespace %s",
+		namespace, deploymentName, namespace,
+	)
+}
+
+// isPodReady reports whether the pod's Ready condition is True.
+// Pods that are running but not yet ready (e.g. during startup) are excluded
+// to avoid connecting to an Envoy instance that is still initialising.
 func isPodReady(pod *corev1.Pod) bool {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
@@ -134,6 +188,10 @@ func isPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
+// freePort returns a free TCP port on the loopback interface by briefly listening
+// on port 0 (OS assigns an ephemeral port) and immediately closing the listener.
+// There is a small TOCTOU window between Close and portforward.New, but this is
+// acceptable for local dev tooling.
 func freePort() (int, error) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

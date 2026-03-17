@@ -1,7 +1,13 @@
+// Package model defines the domain types that represent an Envoy configuration
+// snapshot. The types are intentionally decoupled from the raw Envoy JSON format
+// so that the renderer and future interactive phases are not tied to Envoy's
+// wire-format field names.
+//
+// Data flows: parser → model → renderer.
 package model
 
 // EnvoySnapshot is the complete parsed Envoy configuration.
-// Built by joining data from ListenersConfigDump, RoutesConfigDump, and ClustersConfigDump.
+// Built by joining data from ListenersConfigDump and RoutesConfigDump.
 type EnvoySnapshot struct {
 	Listeners []Listener `json:"listeners"`
 }

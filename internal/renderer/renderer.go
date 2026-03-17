@@ -1,3 +1,10 @@
+// Package renderer converts an [model.EnvoySnapshot] into a styled, human-readable
+// terminal string using the lipgloss library. The output is a tree of:
+//
+//	Listener → FilterChain → HCM (with RDS reference)
+//	  └─ VirtualHost → Route → HTTP Filters + Route Policies + Backend
+//
+// All rendering is pure (no I/O); callers print the returned string themselves.
 package renderer
 
 import (
@@ -76,6 +83,8 @@ func Render(snapshot *model.EnvoySnapshot) string {
 	return strings.Join(panels, "\n")
 }
 
+// renderListener renders a single listener and all its filter chains as a
+// lipgloss-bordered panel.
 func renderListener(l model.Listener) string {
 	var b strings.Builder
 
@@ -92,6 +101,10 @@ func renderListener(l model.Listener) string {
 	return listenerStyle.Render(b.String())
 }
 
+// renderFilterChain appends the tree representation of a single NetworkFilterChain
+// to b. idx is the zero-based position within the listener and is used for the
+// display label (FilterChain[N]). isLast controls which tree connector character
+// is used (└─ for the last item, ├─ for others).
 func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int, isLast bool) {
 	prefix := treeT
 	childPrefix := treeI
@@ -122,6 +135,14 @@ func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int,
 	renderHCMContent(b, fc.HCM, childPrefix+treeSpc+"  ")
 }
 
+// renderHCMContent renders the HTTP filter pipeline and route tree for a single
+// HCMConfig. indent is the prefix string accumulated from the parent tree nodes
+// and is passed deeper with additional spacing at each level.
+//
+// The HCM-level HTTP filter list is shared across all routes; per-route filter
+// overrides are expressed via each route's TypedPerFilterConfig, which is passed
+// to [renderHTTPFilters] so disabled-at-HCM filters can be shown as active where
+// the route opts in.
 func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 	if hcm.RouteConfig == nil {
 		b.WriteString(fmt.Sprintf("%s%s\n", indent, warningStyle.Render("[RDS not found: "+hcm.RouteConfigName+"]")))
@@ -247,6 +268,14 @@ func renderRoutePolicies(b *strings.Builder, route model.Route, indent string) {
 	}
 }
 
+// formatMatch converts a RouteMatch into a compact human-readable string.
+// Multiple match conditions are joined with " + " (e.g. a route that matches
+// on both a path prefix and a header). When no conditions are set the route
+// matches all traffic and is displayed as "/".
+//
+// The distinction between prefix and path-prefix matters: path_separated_prefix
+// (shown as "path-prefix") treats "/" as a segment boundary, so /api matches
+// /api/v1 but not /api-v2. A plain prefix matches any byte prefix.
 func formatMatch(m model.RouteMatch) string {
 	var parts []string
 	if m.Prefix != "" {

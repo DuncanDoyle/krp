@@ -1,0 +1,138 @@
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: gw
+  namespace: ingress-gw
+spec:
+  # addresses:
+  # - type: IPAddress
+  #   value: 172.21.0.51
+  allowedListeners:
+    namespaces:
+      from: All
+  gatewayClassName: enterprise-kgateway
+  # ddoyle: GlooGatewayParameters configured on GatewayClass
+  # infrastructure:
+  #   parametersRef:
+  #     name: ent-kgateway-parameters
+  #     group: enterprisekgateway.solo.io
+  #     kind: EnterpriseKgatewayParameters   
+  listeners:
+  - protocol: HTTP
+    port: 80
+    name: http-api
+    hostname: api.example.com
+    allowedRoutes:
+      namespaces:
+        # from: Same
+        # from: All
+        from: Selector # Only allow routes from namespaces with the following label set.
+        selector:
+          matchLabels:
+            shared-gateway-access: "true"
+      kinds:
+      - kind: HTTPRoute
+      # Define which kinds of routes we accept
+      # kinds:
+  # - protocol: HTTPS
+  #   port: 443
+  #   name: https-a-e-c
+  #   # Setting the hostname also sets the SNI domain in the TLS Config in the ProxySpec.
+  #   # It also limits the selection of HTTPRoutes to those routes that have matching hostnames.
+  #   hostname: api.example.com
+  #   # When specifying a wildcard here, the SNI domain will be the wildcard, and not the individual hostnames of the HTTPRoutes attached to this listener.
+  #   # hostname: "*.example.com"
+  #   tls:
+  #     mode: Terminate
+  #     certificateRefs:
+  #       - kind: Secret
+  #         group: ""
+  #         name: api-example-com
+  #         namespace: kgateway-system
+  #   allowedRoutes:
+  #     namespaces:
+  #       from: Selector # Only allow routes from namespaces with the following label set.
+  #       selector:
+  #         matchLabels:
+  #           shared-gateway-access: "true"
+  #     kinds:
+  #     - kind: HTTPRoute
+
+  # - protocol: HTTP
+  #   port: 80
+  #   name: http-developer
+  #   hostname: developer.example.com
+  #   allowedRoutes:
+  #     namespaces:
+  #       # from: Same
+  #       # from: All
+  #       from: Selector # Only allow routes from namespaces with the following label set.
+  #       selector:
+  #         matchLabels:
+  #           shared-gateway-access: "true"
+  #     kinds:
+  #     - kind: HTTPRoute
+  # - protocol: HTTP
+  #   port: 80
+  #   name: http-policymerge
+  #   hostname: policymerge.example.com
+  #   allowedRoutes:
+  #     namespaces:
+  #       # from: Same
+  #       # from: All
+  #       from: Selector # Only allow routes from namespaces with the following label set.
+  #       selector:
+  #         matchLabels:
+  #           shared-gateway-access: "true"
+  #     kinds:
+  #     - kind: HTTPRoute
+  - protocol: HTTP
+    port: 80
+    name: http-keycloak
+    hostname: keycloak.example.com
+    allowedRoutes:
+      namespaces:
+        # from: Same
+        # from: All
+        from: Selector # Only allow routes from namespaces with the following label set.
+        selector:
+          matchLabels:
+            shared-gateway-access: "true"
+      kinds:
+      - kind: HTTPRoute
+  - protocol: HTTP
+    port: 80
+    name: http-lambda
+    hostname: lambda.example.com
+    allowedRoutes:
+      namespaces:
+        from: Selector # Only allow routes from namespaces with the following label set.
+        selector:
+          matchLabels:
+            shared-gateway-access: "true"
+      kinds:
+      - kind: HTTPRoute
+  # - protocol: HTTP
+  #   port: 80
+  #   name: http-echo
+  #   hostname: echo.example.com
+  #   allowedRoutes:
+  #     namespaces:
+  #       from: Selector # Only allow routes from namespaces with the following label set.
+  #       selector:
+  #         matchLabels:
+  #           shared-gateway-access: "true"
+  #     kinds:
+  #     - kind: HTTPRoute
+  # - protocol: HTTP
+  #   port: 80
+  #   name: http-httpbin
+  #   hostname: httpbin.example.com
+  #   allowedRoutes:
+  #     namespaces:
+  #       from: Selector # Only allow routes from namespaces with the following label set.
+  #       selector:
+  #         matchLabels:
+  #           shared-gateway-access: "true"
+  #     kinds:
+  #     - kind: HTTPRoute

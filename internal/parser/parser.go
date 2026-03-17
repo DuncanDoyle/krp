@@ -1,3 +1,12 @@
+// Package parser converts a raw Envoy /config_dump JSON payload into the
+// domain model defined in internal/model. The Envoy config_dump is a heterogeneous
+// JSON array where each element has a "@type" discriminator; the parser dispatches
+// on that field to extract ListenersConfigDump and RoutesConfigDump sections, then
+// joins them into an [model.EnvoySnapshot].
+//
+// Non-fatal errors (e.g. a single malformed section) are collected as warnings and
+// returned alongside the best-effort snapshot so the caller can surface them to the
+// user rather than silently dropping data.
 package parser
 
 import (
@@ -8,8 +17,8 @@ import (
 	"github.com/DuncanDoyle/kfp/internal/model"
 )
 
-// ParseResult holds the parsed EnvoySnapshot and any non-fatal warnings collected
-// during parsing (e.g. malformed config sections that were skipped).
+// ParseResult holds the parsed [model.EnvoySnapshot] and any non-fatal warnings
+// collected during parsing (e.g. malformed config sections that were skipped).
 // Warnings are surfaced to the user so that silently dropped sections are visible.
 type ParseResult struct {
 	Snapshot *model.EnvoySnapshot
@@ -71,7 +80,7 @@ func Parse(data []byte) (ParseResult, error) {
 }
 
 // parseListener converts a raw dynamic listener into the model.Listener,
-// joining each HCM to its route config via route_config_name.
+// joining each HCM to its route config via `route_config_name`.
 func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) model.Listener {
 	l := model.Listener{
 		Name: rl.Name,
@@ -120,7 +129,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 	return l
 }
 
-// parseHCM extracts the HCM config from the raw typed_config JSON.
+// parseHCM extracts the HCM config from the raw `typed_config` JSON.
 func parseHCM(raw json.RawMessage) *model.HCMConfig {
 	var hcm rawHCM
 	if err := json.Unmarshal(raw, &hcm); err != nil {
@@ -276,21 +285,33 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 }
 
 // --- Raw JSON structs matching the actual Envoy config dump format ---
+//
+// These types are intentionally minimal: only the fields that kfp currently
+// reads are declared. Unknown fields are silently ignored by encoding/json,
+// which keeps these structs stable against Envoy API additions.
 
+// configDump is the top-level /config_dump response. Each element of Configs
+// is a distinct config section identified by its "@type" field.
 type configDump struct {
 	Configs []json.RawMessage `json:"configs"`
 }
 
+// typedConfig is used to peek at the "@type" discriminator before fully
+// unmarshalling a config section into its concrete type.
 type typedConfig struct {
 	Type string `json:"@type"`
 }
 
 // Listeners
 
+// listenersConfigDump corresponds to type.googleapis.com/envoy.admin.v3.ListenersConfigDump.
+// Only `dynamic_listeners` are read; static listeners (bootstrap) are ignored because
+// kgateway does not use them.
 type listenersConfigDump struct {
 	DynamicListeners []rawListener `json:"dynamic_listeners"`
 }
 
+// rawListener is a single entry from `dynamic_listeners`.
 type rawListener struct {
 	Name        string `json:"name"`
 	ActiveState struct {
@@ -307,6 +328,7 @@ type rawListener struct {
 	} `json:"active_state"`
 }
 
+// rawFilterChain is a single filter_chain within a listener.
 type rawFilterChain struct {
 	Name             string `json:"name"`
 	FilterChainMatch struct {
@@ -315,6 +337,7 @@ type rawFilterChain struct {
 	Filters []rawNetworkFilter `json:"filters"`
 }
 
+// rawNetworkFilter is a single entry in a filter chain's `filters` list.
 type rawNetworkFilter struct {
 	Name        string          `json:"name"`
 	TypedConfig json.RawMessage `json:"typed_config"`
@@ -322,6 +345,9 @@ type rawNetworkFilter struct {
 
 // HCM
 
+// rawHCM represents the `typed_config` of an `envoy.filters.network.http_connection_manager`
+// network filter. Only the `rds` and `http_filters` fields are extracted; all other HCM
+// options (timeouts, access log, tracing, etc.) are ignored.
 type rawHCM struct {
 	RDS struct {
 		RouteConfigName string `json:"route_config_name"`
@@ -329,6 +355,7 @@ type rawHCM struct {
 	HTTPFilters []rawHTTPFilter `json:"http_filters"`
 }
 
+// rawHTTPFilter is a single entry in the HCM `http_filters` list.
 type rawHTTPFilter struct {
 	Name        string          `json:"name"`
 	TypedConfig json.RawMessage `json:"typed_config"`
@@ -337,23 +364,28 @@ type rawHTTPFilter struct {
 
 // Routes
 
+// routesConfigDump corresponds to type.googleapis.com/envoy.admin.v3.RoutesConfigDump.
+// Only `dynamic_route_configs` are read; static route configs are ignored.
 type routesConfigDump struct {
 	DynamicRouteConfigs []struct {
 		RouteConfig rawRouteConfig `json:"route_config"`
 	} `json:"dynamic_route_configs"`
 }
 
+// rawRouteConfig is the `route_config` object within a dynamic route config entry.
 type rawRouteConfig struct {
 	Name         string           `json:"name"`
 	VirtualHosts []rawVirtualHost `json:"virtual_hosts"`
 }
 
+// rawVirtualHost is a single virtual_host within a route config.
 type rawVirtualHost struct {
 	Name    string     `json:"name"`
 	Domains []string   `json:"domains"`
 	Routes  []rawRoute `json:"routes"`
 }
 
+// rawRoute is a single route entry within a virtual host.
 type rawRoute struct {
 	Name  string `json:"name"`
 	Match struct {
@@ -416,6 +448,7 @@ type rawRoute struct {
 	Metadata                *rawRouteMetadata          `json:"metadata"`
 }
 
+// rawRouteMetadata holds the `metadata` object on a route, used for EKTP policy cross-references.
 type rawRouteMetadata struct {
 	FilterMetadata map[string]json.RawMessage `json:"filter_metadata"`
 }
