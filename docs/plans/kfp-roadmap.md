@@ -18,7 +18,13 @@ Each phase has its own design and implementation document pair in `docs/plans/`.
 
 CLI that parses a raw Envoy config dump (from file or live port-forward) and renders the complete structure: listeners, network-level filter chains, HCM, RDS route configs, virtual hosts, routes, HTTP filter pipeline, and backend clusters. No K8S awareness. Static TUI output.
 
-### Phase 2 — Filter Config Detail
+### Phase 2 — HTTPRoute Selector
+**Status:** Complete
+**Docs:** `2026-03-17-phase-2-httproute-selector-design.md`, `2026-03-17-phase-2-httproute-selector-implementation.md`
+
+Add K8S awareness to select a specific HTTPRoute and optionally a rule index. Uses the deterministic route naming convention (`httproute-<name>-<ns>`) embedded in Envoy route names to filter the view down to only the relevant listeners/routes/filters for that HTTPRoute.
+
+### Phase 3 — Filter Config Detail
 **Status:** Not started
 
 Add the ability to see what each filter does. Two interaction modes:
@@ -26,11 +32,6 @@ Add the ability to see what each filter does. Two interaction modes:
 - **All mode** — toggle key (e.g. `a`) to expand/collapse config for all filters at once
 
 Typed config sources: `typed_per_filter_config` on route entries and filter-level config in the HCM `http_filters` array.
-
-### Phase 3 — HTTPRoute Selector
-**Status:** Not started
-
-Add K8S awareness to select a specific HTTPRoute and optionally a rule index. Uses the deterministic route naming convention (`httproute-<name>-<ns>`) embedded in Envoy route names to filter the view down to only the relevant listeners/routes/filters for that HTTPRoute.
 
 ### Phase 4 — K8S Correlation
 **Status:** Not started
@@ -55,8 +56,8 @@ Sequential pipeline (evolves per phase):
 
 ```
 Phase 1:  CLI → Envoy Parser → Renderer
-Phase 2:  CLI → Envoy Parser → Renderer (+ interactive config expansion)
-Phase 3:  CLI → K8S Resolver → Envoy Parser → Route Filter → Renderer
+Phase 2:  CLI → K8S Resolver → Envoy Parser → Route Filter → Renderer
+Phase 3:  CLI → K8S Resolver → Envoy Parser → Route Filter → Renderer (+ interactive config expansion)
 Phase 4:  CLI → K8S Resolver → Envoy Parser → Correlator → Renderer
 Phase 5:  CLI → K8S Resolver → Envoy Parser → Correlator → Renderer (+ detail views + JSON)
 ```

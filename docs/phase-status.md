@@ -1,22 +1,34 @@
-Current Phase: Phase 1.4 — Envoy Config Viewer Patch Cycle (COMPLETE)
+Current Phase: Phase 2 — HTTPRoute Selector (COMPLETE)
 
 ## Allowed Work
-- bug fixes
-- missing features
-- test improvements
+- new filter package and CLI flags
+- route-name substring matching
+- tests for the filter layer
 
 ## Disallowed Work
-- architectural changes
-- new major dependencies
+- interactive TUI (bubbletea) — Phase 3
+- K8S API calls — Phase 4
+- architectural changes unrelated to the selector feature
 
-## Issues (in order)
+## Issues
 
-- [x] **#5** — Add parser tests for scenarios 02_5, 02_6, and 02_8
-  (implementation was already in Phase 1.2 / 106ff8f — verified and closed)
-- [x] **#6** — Deep-copy RouteConfig when assigning to multiple HCMs
-  (implementation was already in Phase 1.2 + 1.3 — verified and closed)
-- [x] **#12** — Parser silently drops malformed config sections
+No GitHub issues were opened for Phase 2 — all work was captured in the implementation plan.
 
 ## Notes
 
-All issues resolved. See `docs/plans/phase-1.4-complete.md` for full record.
+Phase 2 is complete. See `docs/plans/2026-03-17-phase-2-httproute-selector-design.md` and
+`docs/plans/2026-03-17-phase-2-httproute-selector-implementation.md` for the full record.
+
+### What was delivered
+
+- New `internal/filter` package with `Filter(snapshot, FilterOptions)` — pure function, no K8S calls.
+- `FilterOptions` carries `HTTPRouteName`, `HTTPRouteNamespace` (separate from Gateway namespace), and `RuleIndex`.
+- Substring matching on the kgateway route name convention `httproute-<name>-<namespace>-`.
+- Three new `kfp dump` flags: `--httproute`, `--httproute-namespace`, `--rule`.
+- 7 unit tests + 2 E2E tests against real config dumps.
+
+### Deferred / open
+
+- **#11** (P2) — `prefix_rewrite` route action not captured (carried from Phase 1)
+- **#13** (P3) — `weighted_clusters` not captured (carried from Phase 1)
+- **#16** — RFE: support `--rule <name>` when HTTPRoute rule name field is promoted to standard channel
