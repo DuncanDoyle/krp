@@ -37,7 +37,7 @@ Model, parser, renderer, and envoy packages are **not modified**.
 // by HTTPRoute identity, as encoded in Envoy route names by kgateway.
 package filter
 
-import "github.com/DuncanDoyle/kfp/internal/model"
+import "github.com/DuncanDoyle/krp/internal/model"
 
 // FilterOptions controls how [Filter] selects routes from a snapshot.
 type FilterOptions struct {
@@ -91,8 +91,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/filter"
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/filter"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 // routeName builds a realistic Envoy route name for test cases.
@@ -290,7 +290,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 // FilterOptions controls how [Filter] selects routes from a snapshot.
@@ -494,7 +494,7 @@ return nil
 Add to the import block in `cmd/kfp/main.go`:
 
 ```go
-"github.com/DuncanDoyle/kfp/internal/filter"
+"github.com/DuncanDoyle/krp/internal/filter"
 ```
 
 - [ ] **Step 3.5: Build**
@@ -543,8 +543,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/filter"
-	"github.com/DuncanDoyle/kfp/internal/parser"
+	"github.com/DuncanDoyle/krp/internal/filter"
+	"github.com/DuncanDoyle/krp/internal/parser"
 )
 
 // testdataPath returns the path to a testdata file relative to the project root.

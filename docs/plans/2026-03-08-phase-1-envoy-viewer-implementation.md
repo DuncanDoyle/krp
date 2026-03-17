@@ -1876,7 +1876,7 @@ git commit -m "docs: add README and .gitignore"
 
 ## Phase 1.1 — Patch Cycle
 
-**Issues resolved:** [#1](https://github.com/DuncanDoyle/kfp/issues/1), [#2](https://github.com/DuncanDoyle/kfp/issues/2)
+**Issues resolved:** [#1](https://github.com/DuncanDoyle/krp/issues/1), [#2](https://github.com/DuncanDoyle/krp/issues/2)
 
 ### Background: how Kgateway registers optional filters
 
