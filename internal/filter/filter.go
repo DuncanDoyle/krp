@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 // FilterOptions controls which routes [Filter] retains from a snapshot.

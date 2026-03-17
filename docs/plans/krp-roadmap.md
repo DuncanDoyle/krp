@@ -1,10 +1,10 @@
-# kfp — Project Roadmap
+# krp — Project Roadmap
 
 **Date:** 2026-03-08
 
 ## Overview
 
-`kfp` (Kgateway Filter Chain Printer) is a CLI tool that visualizes the Envoy filter chain configuration for Kubernetes Gateway API routes managed by Kgateway. The project is built in phases, progressing from raw Envoy config visualization to full K8S correlation.
+`krp` (Kgateway Route Printer) is a CLI tool that visualizes the Envoy route configuration for Kubernetes Gateway API routes managed by Kgateway. The project is built in phases, progressing from raw Envoy config visualization to full K8S correlation.
 
 Each phase has its own design and implementation document pair in `docs/plans/`.
 

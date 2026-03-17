@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
-	"github.com/DuncanDoyle/kfp/internal/renderer"
+	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/renderer"
 )
 
 func TestRender_SimpleHTTP(t *testing.T) {

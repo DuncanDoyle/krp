@@ -7,7 +7,7 @@
 
 ## Goal
 
-Allow the user to pass `--httproute <name>` (plus optional `--rule <index>`) to `kfp dump` to filter the rendered output to only the listeners, virtual hosts, and routes relevant to the selected HTTPRoute. No K8S API calls — filtering is done purely by matching the HTTPRoute identity embedded in Envoy route names.
+Allow the user to pass `--route <name>` (plus optional `--rule <index>`) to `kfp dump` to filter the rendered output to only the listeners, virtual hosts, and routes relevant to the selected HTTPRoute. No K8S API calls — filtering is done purely by matching the HTTPRoute identity embedded in Envoy route names.
 
 ---
 
@@ -15,7 +15,7 @@ Allow the user to pass `--httproute <name>` (plus optional `--rule <index>`) to 
 
 `kfp dump` already accepts `-n / --namespace` for the **Gateway namespace** — this is used to locate the gateway-proxy pod for port-forwarding and is unrelated to where HTTPRoutes live. The Gateway API explicitly supports cross-namespace attachment: an HTTPRoute in `team-a` can attach to a Gateway in `kgateway-system`.
 
-Because the two namespaces are independent, `--httproute` requires a dedicated `--httproute-namespace` flag. Reusing `-n` for the HTTPRoute namespace would silently produce wrong results in any cross-namespace setup.
+Because the two namespaces are independent, `--route` requires a dedicated `--route-ns` flag. Reusing `-n` for the HTTPRoute namespace would silently produce wrong results in any cross-namespace setup.
 
 ---
 
@@ -32,7 +32,7 @@ Example (HTTPRoute `api-example-com` in namespace `default`, rule 0, matcher 0):
 listener~80~api_example_com-route-0-httproute-api-example-com-default-0-0-matcher-0
 ```
 
-The `httproute-<name>-<namespace>` segment is always present. The user supplies `--httproute <name>` and `--httproute-namespace <ns>` (the HTTPRoute namespace, **not** the Gateway namespace). Together they form an unambiguous substring match: two HTTPRoutes with the same name in different namespaces produce different substrings (`httproute-foo-ns1-` vs `httproute-foo-ns2-`).
+The `httproute-<name>-<namespace>` segment is always present. The user supplies `--route <name>` and `--route-ns <ns>` (the HTTPRoute namespace, **not** the Gateway namespace). Together they form an unambiguous substring match: two HTTPRoutes with the same name in different namespaces produce different substrings (`httproute-foo-ns1-` vs `httproute-foo-ns2-`).
 
 Routes that do not follow this convention (e.g. older kgateway versions, raw Envoy config) simply won't match — the filter returns an empty snapshot and the renderer shows nothing, which is a clear signal to the user.
 
@@ -112,13 +112,13 @@ New flags on `kfp dump`:
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `--httproute` | string | HTTPRoute name to filter by |
-| `--httproute-namespace` | string | Namespace of the HTTPRoute (required when `--httproute` is set) |
+| `--route` | string | HTTPRoute name to filter by |
+| `--route-ns` | string | Namespace of the HTTPRoute (required when `--route` is set) |
 | `--rule` | int | Rule index within the HTTPRoute (default: -1, all rules) |
 
-`--httproute` is optional. When absent, no filtering is applied and behaviour is identical to Phase 1.
+`--route` is optional. When absent, no filtering is applied and behaviour is identical to Phase 1.
 
-`-n / --namespace` remains the **Gateway namespace** (used for port-forwarding) and is not involved in route filtering. `--httproute-namespace` is a separate, required flag whenever `--httproute` is provided.
+`-n / --namespace` remains the **Gateway namespace** (used for port-forwarding) and is not involved in route filtering. `--route-ns` is a separate, required flag whenever `--route` is provided.
 
 ---
 
@@ -126,10 +126,10 @@ New flags on `kfp dump`:
 
 | Condition | Behaviour |
 |-----------|-----------|
-| `--httproute` given, no routes match | Render empty snapshot; print hint to stderr: `"no routes found for HTTPRoute <ns>/<name> — check name, namespace, and that the HTTPRoute is attached to this Gateway"` |
-| `--httproute` given without `--httproute-namespace` | Return error: `"--httproute-namespace is required when --httproute is set"` |
-| `--httproute-namespace` given without `--httproute` | Return error: `"--httproute-namespace requires --httproute"` |
-| `--rule` given without `--httproute` | Return error: `"--rule requires --httproute"` |
+| `--route` given, no routes match | Render empty snapshot; print hint to stderr: `"no routes found for HTTPRoute <ns>/<name> — check name, namespace, and that the HTTPRoute is attached to this Gateway"` |
+| `--route` given without `--route-ns` | Return error: `"--route-ns is required when --route is set"` |
+| `--route-ns` given without `--route` | Return error: `"--route-ns requires --route"` |
+| `--rule` given without `--route` | Return error: `"--rule requires --route"` |
 | `--rule` is negative (other than -1 sentinel) | Return error: `"--rule must be >= 0 (use -1 for all rules, which is the default)"` |
 
 ## Known Limitation: Dash Ambiguity

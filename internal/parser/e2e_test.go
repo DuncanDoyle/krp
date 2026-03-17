@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
-	"github.com/DuncanDoyle/kfp/internal/parser"
-	"github.com/DuncanDoyle/kfp/internal/renderer"
+	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/parser"
+	"github.com/DuncanDoyle/krp/internal/renderer"
 )
 
 // TestParseAllScenarios walks testdata/scenarios/ and parses every config_dump.json found.

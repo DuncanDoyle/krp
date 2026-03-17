@@ -24,7 +24,7 @@ Phase 2 is complete. See `docs/plans/2026-03-17-phase-2-httproute-selector-desig
 - New `internal/filter` package with `Filter(snapshot, FilterOptions)` — pure function, no K8S calls.
 - `FilterOptions` carries `HTTPRouteName`, `HTTPRouteNamespace` (separate from Gateway namespace), and `RuleIndex`.
 - Substring matching on the kgateway route name convention `httproute-<name>-<namespace>-`.
-- Three new `kfp dump` flags: `--httproute`, `--httproute-namespace`, `--rule`.
+- Three new `krp dump` flags: `--route`, `--route-ns`, `--rule`.
 - 7 unit tests + 2 E2E tests against real config dumps.
 
 ### Deferred / open

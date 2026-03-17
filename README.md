@@ -1,10 +1,10 @@
-# kfp — Kgateway Filter Chain Printer
+# krp — Kgateway Route Printer
 
-`kfp` is a CLI tool that visualizes the [Envoy](https://www.envoyproxy.io/) filter chain configuration for [Kgateway](https://github.com/kgateway-dev/kgateway) API Gateway deployments.
+`krp` is a CLI tool that visualizes the [Envoy](https://www.envoyproxy.io/) route configuration for [Kgateway](https://github.com/kgateway-dev/kgateway) API Gateway deployments.
 
-Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `kfp` makes this visible.
+Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `krp` makes this visible.
 
-> **Status:** Active development — Phase 1 (Envoy Config Viewer) complete.
+> **Status:** Active development — Phase 2 (HTTPRoute Selector) complete.
 
 ---
 
@@ -15,9 +15,13 @@ Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) r
 - Visualize the complete configuration: listeners, filter chains, HTTP filter pipeline, virtual hosts, routes, and backend clusters
 - Auto port-forward to the gateway-proxy pod (no manual setup needed)
 
+**Phase 2 (complete) — HTTPRoute Selector**
+- Filter the rendered output to routes belonging to a specific HTTPRoute (`--route`, `--route-ns`)
+- Optionally narrow to a single rule within the HTTPRoute (`--rule`)
+- Port-forward to any Deployment pod via `--deployment` (alternative to `--gateway`)
+
 **Planned**
-- Phase 2: Expand individual filters to see their typed configuration
-- Phase 3: Select by HTTPRoute name to filter the view to a specific route
+- Phase 3: Expand individual filters to see their typed configuration
 - Phase 4: Correlate Envoy filters back to the originating K8S Gateway API resources (Gateway, HTTPRoute, TrafficPolicy, EKTP)
 - Phase 5: Interactive detail view with side-by-side Envoy config + K8S manifest
 
@@ -30,9 +34,9 @@ Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) r
 Build from source:
 
 ```bash
-git clone https://github.com/DuncanDoyle/kfp.git
-cd kfp
-go build -o kfp ./cmd/kfp
+git clone https://github.com/DuncanDoyle/krp.git
+cd krp
+go build -o krp ./cmd/krp
 ```
 
 ---
@@ -42,17 +46,30 @@ go build -o kfp ./cmd/kfp
 ### Visualize from a config dump file
 
 ```bash
-kfp dump --file path/to/config_dump.json
+krp dump --file path/to/config_dump.json
 ```
 
 ### Visualize from a live cluster
 
 ```bash
-# kfp automatically port-forwards to the gateway-proxy pod
-kfp dump --gateway gw -n kgateway-system
+# krp automatically port-forwards to the gateway-proxy pod
+krp dump --gateway gw -n kgateway-system
+
+# Port-forward to any pod in a Deployment
+krp dump --deployment gw -n kgateway-system
 
 # With an explicit kubeconfig context
-kfp dump --gateway gw -n kgateway-system --context my-cluster
+krp dump --gateway gw -n kgateway-system --context my-cluster
+```
+
+### Filter by HTTPRoute
+
+```bash
+# Show only routes for a specific HTTPRoute
+krp dump --file config_dump.json --route my-route --route-ns default
+
+# Narrow to a single rule within the HTTPRoute (zero-based index)
+krp dump --file config_dump.json --route my-route --route-ns default --rule 0
 ```
 
 ### Collecting a config dump manually
@@ -68,7 +85,7 @@ kill %1
 
 ## Requirements
 
-### Live cluster mode (`--gateway`)
+### Live cluster mode (`--gateway` / `--deployment`)
 
 - A running Kubernetes cluster with Kgateway installed
 - RBAC: `get pods` and `create pods/portforward` in the Gateway namespace
@@ -112,12 +129,13 @@ No cluster access required — works fully offline.
 ## Project Structure
 
 ```
-cmd/kfp/          CLI entrypoint (cobra)
+cmd/krp/          CLI entrypoint (cobra)
 internal/
   model/          EnvoySnapshot data model
   parser/         Envoy config dump JSON parser
   envoy/          Admin API client + port-forwarder
   renderer/       Terminal UI (lipgloss)
+  filter/         HTTPRoute snapshot filter
 docs/plans/       Design documents and implementation plans
 testdata/
   scenarios/      Real K8S + Envoy config dump pairs for testing

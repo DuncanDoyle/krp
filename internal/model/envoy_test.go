@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 func TestEnvoySnapshotJSONRoundtrip(t *testing.T) {

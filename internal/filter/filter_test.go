@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/filter"
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/filter"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 // routeName builds a realistic Envoy route name for test cases, following the

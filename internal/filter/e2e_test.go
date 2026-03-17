@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/filter"
-	"github.com/DuncanDoyle/kfp/internal/parser"
+	"github.com/DuncanDoyle/krp/internal/filter"
+	"github.com/DuncanDoyle/krp/internal/parser"
 )
 
 // testdataPath returns the path to a testdata file relative to the project root.

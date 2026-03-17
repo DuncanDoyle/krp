@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 // TestCloneRouteConfig_MapsAreIndependent verifies that TypedPerFilterConfig and Metadata

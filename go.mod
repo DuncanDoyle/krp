@@ -1,4 +1,4 @@
-module github.com/DuncanDoyle/kfp
+module github.com/DuncanDoyle/krp
 
 go 1.25.0
 

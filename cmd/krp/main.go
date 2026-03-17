@@ -1,14 +1,14 @@
-// Command kfp (Kgateway Filter-chain Printer) visualizes the Envoy filter chain
-// configuration for a Kubernetes Gateway managed by kgateway.
+// Command krp (Kgateway Route Printer) visualizes the Envoy route configuration
+// for a Kubernetes Gateway managed by kgateway.
 //
 // Usage:
 //
-//	kfp dump --file <path>                                                                     # parse a local config_dump JSON file
-//	kfp dump --gateway <name> -n <ns>                                                          # live fetch via port-forward to gateway-proxy pod
-//	kfp dump --deployment <name> -n <ns>                                                       # live fetch via port-forward to any pod in Deployment
-//	kfp dump --gateway <name> -n <ns> --context ctx                                            # same, with an explicit kubeconfig context
-//	kfp dump --file <path> --httproute <name> --httproute-namespace <ns>                       # filter by HTTPRoute
-//	kfp dump --file <path> --httproute <name> --httproute-namespace <ns> --rule 0              # filter by rule index
+//	krp dump --file <path>                                                                     # parse a local config_dump JSON file
+//	krp dump --gateway <name> -n <ns>                                                          # live fetch via port-forward to gateway-proxy pod
+//	krp dump --deployment <name> -n <ns>                                                       # live fetch via port-forward to any pod in Deployment
+//	krp dump --gateway <name> -n <ns> --context ctx                                            # same, with an explicit kubeconfig context
+//	krp dump --file <path> --route <name> --route-ns <ns>                                       # filter by HTTPRoute
+//	krp dump --file <path> --route <name> --route-ns <ns> --rule 0                             # filter by rule index
 package main
 
 import (
@@ -16,22 +16,22 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DuncanDoyle/kfp/internal/envoy"
-	"github.com/DuncanDoyle/kfp/internal/filter"
-	"github.com/DuncanDoyle/kfp/internal/parser"
-	"github.com/DuncanDoyle/kfp/internal/renderer"
+	"github.com/DuncanDoyle/krp/internal/envoy"
+	"github.com/DuncanDoyle/krp/internal/filter"
+	"github.com/DuncanDoyle/krp/internal/parser"
+	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
 func main() {
 	root := &cobra.Command{
-		Use:   "kfp",
-		Short: "Kgateway filter chain printer — visualize Envoy config",
+		Use:   "krp",
+		Short: "Kgateway route printer — visualize Envoy config",
 	}
 
 	dump := &cobra.Command{
 		Use:   "dump",
-		Short: "Dump and visualize the Envoy filter chain configuration",
+		Short: "Dump and visualize the Envoy route configuration",
 		RunE:  runDump,
 	}
 
@@ -43,11 +43,11 @@ func main() {
 	dump.Flags().String("context", "", "Kubeconfig context (used with --gateway or --deployment, default: current context)")
 
 	// HTTPRoute filter — narrows the output to routes belonging to one HTTPRoute.
-	// --httproute-namespace is intentionally separate from -n/--namespace because
-	// the HTTPRoute namespace can differ from the Gateway namespace.
-	dump.Flags().String("httproute", "", "Filter output to routes belonging to this HTTPRoute name")
-	dump.Flags().String("httproute-namespace", "", "Namespace of the HTTPRoute (required with --httproute; may differ from the Gateway namespace)")
-	dump.Flags().Int("rule", -1, "Zero-based rule index within the HTTPRoute (-1 = all rules, used with --httproute)")
+	// --route-ns is intentionally separate from -n/--namespace because the
+	// HTTPRoute namespace can differ from the Gateway namespace.
+	dump.Flags().String("route", "", "Filter output to routes belonging to this HTTPRoute name")
+	dump.Flags().String("route-ns", "", "Namespace of the HTTPRoute (required with --route; may differ from the Gateway namespace)")
+	dump.Flags().Int("rule", -1, "Zero-based rule index within the HTTPRoute (-1 = all rules, used with --route)")
 
 	root.AddCommand(dump)
 
@@ -67,8 +67,8 @@ func runDump(cmd *cobra.Command, args []string) error {
 	namespace, _ := cmd.Flags().GetString("namespace")
 	kubeContext, _ := cmd.Flags().GetString("context")
 
-	httprouteName, _ := cmd.Flags().GetString("httproute")
-	httprouteNamespace, _ := cmd.Flags().GetString("httproute-namespace")
+	routeName, _ := cmd.Flags().GetString("route")
+	routeNS, _ := cmd.Flags().GetString("route-ns")
 	ruleIndex, _ := cmd.Flags().GetInt("rule")
 
 	// Exactly one source must be specified; --gateway and --deployment are mutually exclusive.
@@ -83,19 +83,19 @@ func runDump(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate HTTPRoute filter flags.
-	// --httproute and --httproute-namespace must always be used together because
-	// two HTTPRoutes with the same name in different namespaces are distinct resources.
-	if httprouteName != "" && httprouteNamespace == "" {
-		return fmt.Errorf("--httproute-namespace is required when --httproute is set")
+	// --route and --route-ns must always be used together because two HTTPRoutes
+	// with the same name in different namespaces are distinct resources.
+	if routeName != "" && routeNS == "" {
+		return fmt.Errorf("--route-ns is required when --route is set")
 	}
-	if httprouteNamespace != "" && httprouteName == "" {
-		return fmt.Errorf("--httproute-namespace requires --httproute")
+	if routeNS != "" && routeName == "" {
+		return fmt.Errorf("--route-ns requires --route")
 	}
 	if ruleIndex < -1 {
 		return fmt.Errorf("--rule must be >= 0 (use -1 for all rules, which is the default)")
 	}
-	if ruleIndex >= 0 && httprouteName == "" {
-		return fmt.Errorf("--rule requires --httproute")
+	if ruleIndex >= 0 && routeName == "" {
+		return fmt.Errorf("--rule requires --route")
 	}
 
 	// Fetch the raw config dump bytes.
@@ -141,16 +141,16 @@ func runDump(cmd *cobra.Command, args []string) error {
 
 	// Apply the HTTPRoute filter when requested.
 	snapshot := result.Snapshot
-	if httprouteName != "" {
+	if routeName != "" {
 		snapshot = filter.Filter(snapshot, filter.FilterOptions{
-			HTTPRouteName:      httprouteName,
-			HTTPRouteNamespace: httprouteNamespace,
+			HTTPRouteName:      routeName,
+			HTTPRouteNamespace: routeNS,
 			RuleIndex:          ruleIndex,
 		})
 		if len(snapshot.Listeners) == 0 {
 			fmt.Fprintf(os.Stderr,
 				"warning: no routes found for HTTPRoute %s/%s — check name, namespace, and that the HTTPRoute is attached to this Gateway\n",
-				httprouteNamespace, httprouteName)
+				routeNS, routeName)
 		}
 	}
 

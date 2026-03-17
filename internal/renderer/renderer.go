@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/model"
 	"github.com/charmbracelet/lipgloss"
 )
 

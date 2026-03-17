@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DuncanDoyle/kfp/internal/envoy"
+	"github.com/DuncanDoyle/krp/internal/envoy"
 )
 
 func TestFetchConfigDump_Success(t *testing.T) {

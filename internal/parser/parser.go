@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"maps"
 
-	"github.com/DuncanDoyle/kfp/internal/model"
+	"github.com/DuncanDoyle/krp/internal/model"
 )
 
 // ParseResult holds the parsed [model.EnvoySnapshot] and any non-fatal warnings
@@ -286,7 +286,7 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 
 // --- Raw JSON structs matching the actual Envoy config dump format ---
 //
-// These types are intentionally minimal: only the fields that kfp currently
+// These types are intentionally minimal: only the fields that krp currently
 // reads are declared. Unknown fields are silently ignored by encoding/json,
 // which keeps these structs stable against Envoy API additions.
 
