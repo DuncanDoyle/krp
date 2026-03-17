@@ -1,6 +1,8 @@
 .claude/
 .worktrees/
 
-# Compiled binary (root-level only, not the cmd/kfp source directory)
+# Compiled binaries (root-level only, not the cmd/ source directories)
+/krp
+krp.exe
 /kfp
 kfp.exe

@@ -6,7 +6,7 @@ This document contains a number of TO-DO items. Items that I think are either mi
 ## Global Policy Namespace
 Kgateway has a feature called "Global Policy Namespace". This feature allows the user to define Kgateway policies (e.g. TrafficPolicy, EnterpriseKgatewayTrafficPolicy, etc.) in a different namespace than its target. Normally, in K8S Gateway API, a `targetRef` is a LocalObjectReference, meaning that the policy needs to be deployed in the same namespace as its target. "Global Policy Namespace" allows you to select a single namespace on your K8S cluster from which policies can attach to any target.
 
-Currently, I don't think `kfp` is able to detect global policy attachment from policies deployed in the "Global Policy Namespace" to targets in other namespaces.
+Currently, I don't think `krp` is able to detect global policy attachment from policies deployed in the "Global Policy Namespace" to targets in other namespaces.
 
 
 ## Config Mismatches

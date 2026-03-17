@@ -1,7 +1,7 @@
 # Phase 1 — Envoy Config Viewer: Design Document
 
 **Date:** 2026-03-08
-**Phase:** 1 of 5 (see `2026-03-08-kfp-roadmap.md`)
+**Phase:** 1 of 5 (see `2026-03-08-krp-roadmap.md`)
 
 ## Goal
 
@@ -13,13 +13,13 @@ Build a CLI that parses a raw Envoy config dump and renders the complete Envoy c
 
 ```bash
 # From a file (offline analysis, testdata scenarios)
-kfp dump --file testdata/scenarios/01-simple/envoy/config_dump.json
+krp dump --file testdata/scenarios/01-simple/envoy/config_dump.json
 
 # From a live cluster (auto port-forward to gateway-proxy pod)
-kfp dump --gateway gw -n kgateway-system
+krp dump --gateway gw -n kgateway-system
 
 # Override kubeconfig context for live mode
-kfp dump --gateway gw -n kgateway-system --context my-cluster
+krp dump --gateway gw -n kgateway-system --context my-cluster
 ```
 
 The `--file` mode is the priority — it lets us develop and test against real testdata without needing a live cluster. The `--gateway` mode finds the first ready pod with label `gateway.networking.k8s.io/gateway-name=<name>` in the given namespace, port-forwards to admin port 19000, and fetches `/config_dump`.

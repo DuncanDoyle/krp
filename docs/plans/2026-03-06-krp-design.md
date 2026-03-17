@@ -1,10 +1,10 @@
-# kfp — Kgateway Filter Chain Printer: Design Document
+# krp — Kgateway Filter Chain Printer: Design Document
 
 **Date:** 2026-03-06
 
 ## Overview
 
-`kfp` is a CLI tool that takes an HTTPRoute on a running Kubernetes cluster and produces a rich terminal visualization of the exact Envoy filter chain that traffic traverses — from the Gateway listener, through each filter (auth, rate limiting, transformations, etc.), to the backend service. Each filter in the visualization is annotated with a reference to the originating Kubernetes Gateway API resource.
+`krp` is a CLI tool that takes an HTTPRoute on a running Kubernetes cluster and produces a rich terminal visualization of the exact Envoy filter chain that traffic traverses — from the Gateway listener, through each filter (auth, rate limiting, transformations, etc.), to the backend service. Each filter in the visualization is annotated with a reference to the originating Kubernetes Gateway API resource.
 
 The primary use case is debugging and understanding the runtime behavior of a Kgateway-managed gateway, bridging the gap between the declarative K8S configuration and the actual Envoy configuration programmed by the control plane.
 
@@ -117,16 +117,16 @@ const (
 
 ```bash
 # Inspect all rules of an HTTPRoute
-kfp route <name> -n <namespace>
+krp route <name> -n <namespace>
 
 # Pin to a specific rule (zero-indexed)
-kfp route <name> -n <namespace> --rule 0
+krp route <name> -n <namespace> --rule 0
 
 # Override kubeconfig context
-kfp route <name> -n <namespace> --context my-cluster
+krp route <name> -n <namespace> --context my-cluster
 
 # Show raw Envoy typed config and MatchMethod in expanded panels
-kfp route <name> -n <namespace> --verbose
+krp route <name> -n <namespace> --verbose
 ```
 
 ---
@@ -194,4 +194,4 @@ Example layout:
 
 - **REST API / server mode:** The `RouteGraph` struct is intentionally designed as a clean, serializable data model. Adding a `--serve` flag that exposes a JSON endpoint requires only a thin HTTP handler on top of the existing pipeline — no architectural changes needed.
 - **Web UI:** The server mode above would feed directly into a Kgateway UI that renders the filter chain visually.
-- **Rename:** `kfp` is a working name; can be renamed without any design impact.
+- **Rename:** `krp` is a working name; can be renamed without any design impact.

@@ -1,4 +1,4 @@
-# kfp — Kgateway Filter Chain Printer: Implementation Plan
+# krp — Kgateway Filter Chain Printer: Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -52,7 +52,7 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:   "kfp",
+		Use:   "krp",
 		Short: "Kgateway filter chain printer",
 	}
 
@@ -78,7 +78,7 @@ func main() {
 func runRoute(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	namespace, _ := cmd.Flags().GetString("namespace")
-	fmt.Printf("kfp route %s/%s — not yet implemented\n", namespace, name)
+	fmt.Printf("krp route %s/%s — not yet implemented\n", namespace, name)
 	return nil
 }
 ```
@@ -91,7 +91,7 @@ go run ./cmd/kfp route my-route -n default
 
 Expected output:
 ```
-kfp route default/my-route — not yet implemented
+krp route default/my-route — not yet implemented
 ```
 
 **Step 5: Commit**
@@ -522,7 +522,7 @@ func acceptedGateway(route *gatewayv1.HTTPRoute) (string, error) {
 }
 
 // primaryListener returns the first listener on the Gateway.
-// In practice kfp could be extended to let the user pick a listener.
+// In practice krp could be extended to let the user pick a listener.
 func primaryListener(gw *gatewayv1.Gateway) gatewayv1.Listener {
 	if len(gw.Spec.Listeners) == 0 {
 		return gatewayv1.Listener{Name: "unknown"}
@@ -1625,7 +1625,7 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:   "kfp",
+		Use:   "krp",
 		Short: "Kgateway filter chain printer",
 	}
 
@@ -1775,7 +1775,7 @@ No automated test for this — requires a live cluster with kgateway installed.
 **Step 1: Build the binary**
 
 ```bash
-go build -o kfp ./cmd/kfp
+go build -o krp ./cmd/kfp
 ```
 
 **Step 2: Apply a test HTTPRoute to your cluster**
@@ -1797,7 +1797,7 @@ spec:
           port: 8080
 ```
 
-**Step 3: Run kfp**
+**Step 3: Run krp**
 
 ```bash
 ./kfp route test-route -n default
@@ -1821,7 +1821,7 @@ Expected: clear error message, non-zero exit code.
 - Create: `README.md`
 
 ```markdown
-# kfp — Kgateway Filter Chain Printer
+# krp — Kgateway Filter Chain Printer
 
 Visualizes the Envoy filter chain for a Kubernetes HTTPRoute managed by [Kgateway](https://github.com/kgateway-dev/kgateway).
 
@@ -1835,16 +1835,16 @@ go install github.com/kgateway-dev/kfp/cmd/kfp@latest
 
 ```bash
 # Inspect all rules of an HTTPRoute
-kfp route <name> -n <namespace>
+krp route <name> -n <namespace>
 
 # Pin to a specific rule
-kfp route <name> -n <namespace> --rule 0
+krp route <name> -n <namespace> --rule 0
 
 # Override kubeconfig context
-kfp route <name> -n <namespace> --context my-cluster
+krp route <name> -n <namespace> --context my-cluster
 
 # Show raw Envoy config in expanded panels
-kfp route <name> -n <namespace> --verbose
+krp route <name> -n <namespace> --verbose
 ```
 
 ## Requirements

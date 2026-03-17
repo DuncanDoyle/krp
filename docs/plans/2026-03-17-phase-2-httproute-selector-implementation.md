@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `--route <name>` (and optional `--rule <index>`) to `kfp dump` to filter the rendered snapshot to only routes belonging to the specified HTTPRoute.
+**Goal:** Add `--route <name>` (and optional `--rule <index>`) to `krp dump` to filter the rendered snapshot to only routes belonging to the specified HTTPRoute.
 
 **Architecture:** A new `internal/filter` package provides a pure `Filter(snapshot, opts)` function that returns a pruned `*model.EnvoySnapshot` by substring-matching the HTTPRoute identity embedded in Envoy route names. The CLI calls it between `parser.Parse` and `renderer.Render` when `--route` is set.
 
@@ -517,7 +517,7 @@ Expected: all tests pass.
 
 ```bash
 git add cmd/kfp/main.go
-git commit -m "feat: add --httproute and --rule flags to kfp dump"
+git commit -m "feat: add --httproute and --rule flags to krp dump"
 ```
 
 ---
@@ -697,10 +697,10 @@ Before declaring Phase 2 complete:
 
 - [ ] `go build ./...` — clean
 - [ ] `go test ./...` — all pass
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route api-example-com --route-ns default` — shows only routes matching that HTTPRoute
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route does-not-exist --route-ns default` — prints warning to stderr, no routes rendered
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json` — unfiltered output unchanged from Phase 1
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route api-example-com` — prints error `--route-ns is required when --route is set`
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route-ns default` — prints error `--route-ns requires --route`
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --rule 0` — prints error `--rule requires --route`
-- [ ] Manual: `kfp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route api-example-com --route-ns default --rule -5` — prints error `--rule must be >= 0 (use -1 for all rules, which is the default)`
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route api-example-com --route-ns default` — shows only routes matching that HTTPRoute
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route does-not-exist --route-ns default` — prints warning to stderr, no routes rendered
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json` — unfiltered output unchanged from Phase 1
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route api-example-com` — prints error `--route-ns is required when --route is set`
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route-ns default` — prints error `--route-ns requires --route`
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --rule 0` — prints error `--rule requires --route`
+- [ ] Manual: `krp dump --file testdata/scenarios/00-simple/envoy/config_dump.json --route api-example-com --route-ns default --rule -5` — prints error `--rule must be >= 0 (use -1 for all rules, which is the default)`

@@ -45,7 +45,7 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:   "kfp",
+		Use:   "krp",
 		Short: "Kgateway filter chain printer — visualize Envoy config",
 	}
 
@@ -79,7 +79,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--file and --gateway are mutually exclusive")
 	}
 
-	fmt.Println("kfp dump — not yet implemented")
+	fmt.Println("krp dump — not yet implemented")
 	return nil
 }
 ```
@@ -91,7 +91,7 @@ go mod tidy
 go run ./cmd/kfp dump --file foo.json
 ```
 
-Expected: `kfp dump — not yet implemented`
+Expected: `krp dump — not yet implemented`
 
 **Step 4: Commit**
 
@@ -1589,7 +1589,7 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:   "kfp",
+		Use:   "krp",
 		Short: "Kgateway filter chain printer — visualize Envoy config",
 	}
 
@@ -1822,7 +1822,7 @@ Create `.gitignore`:
 Create `README.md`:
 
 ```markdown
-# kfp — Kgateway Filter Chain Printer
+# krp — Kgateway Filter Chain Printer
 
 Visualizes the Envoy filter chain configuration for [Kgateway](https://github.com/kgateway-dev/kgateway) gateway proxies.
 
@@ -1837,17 +1837,17 @@ go install github.com/kgateway-dev/kfp/cmd/kfp@latest
 ### From a config dump file
 
 ```bash
-kfp dump --file path/to/config_dump.json
+krp dump --file path/to/config_dump.json
 ```
 
 ### From a live cluster
 
 ```bash
 # Auto port-forwards to the gateway-proxy pod
-kfp dump --gateway gw -n kgateway-system
+krp dump --gateway gw -n kgateway-system
 
 # With explicit kubeconfig context
-kfp dump --gateway gw -n kgateway-system --context my-cluster
+krp dump --gateway gw -n kgateway-system --context my-cluster
 ```
 
 ### Getting a config dump

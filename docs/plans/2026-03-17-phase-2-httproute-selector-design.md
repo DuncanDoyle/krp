@@ -7,13 +7,13 @@
 
 ## Goal
 
-Allow the user to pass `--route <name>` (plus optional `--rule <index>`) to `kfp dump` to filter the rendered output to only the listeners, virtual hosts, and routes relevant to the selected HTTPRoute. No K8S API calls — filtering is done purely by matching the HTTPRoute identity embedded in Envoy route names.
+Allow the user to pass `--route <name>` (plus optional `--rule <index>`) to `krp dump` to filter the rendered output to only the listeners, virtual hosts, and routes relevant to the selected HTTPRoute. No K8S API calls — filtering is done purely by matching the HTTPRoute identity embedded in Envoy route names.
 
 ---
 
 ## Two-Namespace Model
 
-`kfp dump` already accepts `-n / --namespace` for the **Gateway namespace** — this is used to locate the gateway-proxy pod for port-forwarding and is unrelated to where HTTPRoutes live. The Gateway API explicitly supports cross-namespace attachment: an HTTPRoute in `team-a` can attach to a Gateway in `kgateway-system`.
+`krp dump` already accepts `-n / --namespace` for the **Gateway namespace** — this is used to locate the gateway-proxy pod for port-forwarding and is unrelated to where HTTPRoutes live. The Gateway API explicitly supports cross-namespace attachment: an HTTPRoute in `team-a` can attach to a Gateway in `kgateway-system`.
 
 Because the two namespaces are independent, `--route` requires a dedicated `--route-ns` flag. Reusing `-n` for the HTTPRoute namespace would silently produce wrong results in any cross-namespace setup.
 
@@ -108,7 +108,7 @@ This gives the renderer a fully valid `*model.EnvoySnapshot` to work with — no
 
 ## CLI Changes
 
-New flags on `kfp dump`:
+New flags on `krp dump`:
 
 | Flag | Type | Description |
 |------|------|-------------|

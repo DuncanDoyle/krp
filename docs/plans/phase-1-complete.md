@@ -5,7 +5,7 @@
 
 ## Summary
 
-Phase 1 delivered a working CLI (`kfp dump`) that fetches and visualises the complete Envoy filter chain configuration for a kgateway-managed Gateway, either from a local config_dump JSON file or live via kubectl port-forward. No K8S resource awareness — raw Envoy config only.
+Phase 1 delivered a working CLI (`krp dump`) that fetches and visualises the complete Envoy filter chain configuration for a kgateway-managed Gateway, either from a local config_dump JSON file or live via kubectl port-forward. No K8S resource awareness — raw Envoy config only.
 
 Phase 1 ran across four patch cycles (1.1–1.4). All planned features were delivered, all GitHub issues resolved.
 
