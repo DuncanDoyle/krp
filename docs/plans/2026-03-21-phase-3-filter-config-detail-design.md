@@ -37,13 +37,25 @@ Parser → [Route Filter] → renderer.Render(snapshot)       (default, static)
 
 #### `FilterRef`
 
-Uniquely identifies one filter instance in the rendered tree. Since the same HCM `http_filters` list is rendered once per route, a ref requires the full path through the tree:
+Uniquely identifies one filter instance in the rendered tree. The Envoy model path is:
+
+```
+Listener[ListenerIdx]
+  └─ FilterChain[FilterChainIdx]
+       └─ HCM
+            └─ RouteConfig
+                 └─ VirtualHost[VirtualHostIdx]
+                      └─ Route[RouteIdx]
+                           └─ hcm.HTTPFilters[FilterIdx]
+```
+
+`FilterRef` represents one rendering of the HCM HTTP filter at `FilterIdx` in the specific context of the route at `RouteIdx`. The same HCM filter appears once per route in the output tree, so the full path is required to distinguish instances.
 
 ```go
 // FilterRef uniquely identifies a single HTTP filter instance as rendered
-// under a specific route. The same HCM filter appears once per route in the
-// output, so the full path (listener → filter chain → virtual host → route →
-// filter index) is required to distinguish instances.
+// under a specific route. The Envoy path is:
+// Listener[ListenerIdx] → FilterChain[FilterChainIdx] → HCM → RouteConfig →
+// VirtualHost[VirtualHostIdx] → Route[RouteIdx] → hcm.HTTPFilters[FilterIdx].
 type FilterRef struct {
     ListenerIdx    int
     FilterChainIdx int
@@ -69,17 +81,25 @@ type RenderOpts struct {
 
 #### `RenderInteractive`
 
+Signature:
+
 ```go
 // RenderInteractive produces the same styled tree as [Render] with two
 // additions driven by opts:
-//   - The item at opts.Cursor (if non-nil) is rendered with a highlight style
-//     (reversed foreground/background) so the user can see where the cursor is.
+//   - The item at opts.Cursor (if non-nil) is rendered with a cursorStyle
+//     (lipgloss.NewStyle().Reverse(true)) so the user can see where the cursor is.
 //   - For each item in opts.Expanded, the filter's typed config is printed
 //     inline below the filter name as indented JSON.
 //
-// Config resolution for an expanded filter: Route.TypedPerFilterConfig[name]
-// is shown if present (per-route override); otherwise HTTPFilter.TypedConfig
+// Config resolution for an expanded filter: the key used for lookup in
+// Route.TypedPerFilterConfig is HTTPFilter.Name (e.g. "io.solo.transformation").
+// This is the same key already used by [Render] to detect per-route activation
+// of disabled-at-HCM filters. If Route.TypedPerFilterConfig[filter.Name] is
+// non-nil it is shown (per-route override); otherwise HTTPFilter.TypedConfig
 // (HCM-level config) is shown. If neither is set, "(no typed config)" is printed.
+//
+// Inline JSON is formatted with json.MarshalIndent using a two-space indent
+// and no line prefix (i.e. json.MarshalIndent(v, "", "  ")).
 //
 // RenderInteractive is a pure function — it performs no I/O and can be called
 // from tests without starting a bubbletea program.
@@ -107,7 +127,24 @@ type model struct {
 }
 ```
 
-`items` is built once at init by `buildItems`, which walks the snapshot in the same traversal order used by `RenderInteractive` (Listener → FilterChain → VirtualHost → Route → HTTPFilter). This guarantees that `items[0]` is the first filter visible on screen.
+`items` is populated once at model construction time by calling `buildItems(snapshot)`. Its signature:
+
+```go
+// buildItems returns the flat ordered list of all navigable FilterRefs in the
+// snapshot, following the canonical traversal order defined below. It is called
+// once when the TUI model is initialised and the result is stored in model.items.
+func buildItems(snapshot *envoymodel.EnvoySnapshot) []renderer.FilterRef
+```
+
+The canonical traversal order — shared by both `buildItems` and `RenderInteractive` — is:
+
+1. `snapshot.Listeners` by index (outer loop)
+2. `listener.FilterChains` by index
+3. `filterChain.HCM.RouteConfig.VirtualHosts` by index
+4. `virtualHost.Routes` by index
+5. `hcm.HTTPFilters` by index (innermost — one `FilterRef` emitted per filter per route)
+
+This order is defined here as the canonical contract. Both `buildItems` and `RenderInteractive` must follow it so that `items[N]` always corresponds to the N-th filter rendered on screen.
 
 #### Key bindings
 
@@ -116,12 +153,24 @@ type model struct {
 | `↑` / `k` | Move cursor up |
 | `↓` / `j` | Move cursor down |
 | `Enter` / `Space` | Toggle expand/collapse current filter |
-| `a` | Toggle expand/collapse all filters |
+| `a` | Expand/collapse all: if `len(items) == 0`, no-op. If `len(expanded) == len(items)` (all expanded), collapse all (clear the map). Otherwise expand all. |
 | `q` / `Ctrl+C` | Quit |
+
+#### Viewport sizing
+
+The model handles `tea.WindowSizeMsg` to set the viewport's width and height to the current terminal dimensions. This is required by `bubbles/viewport` — without it the viewport has zero height and displays nothing. On startup before the first `WindowSizeMsg` arrives, the viewport is initialised with a default size (e.g. 80×24).
+
+#### Init and viewport content
+
+`Init()` returns `nil` (no initial commands needed). The initial `viewport.SetContent` call is made in `Update()` when the first `tea.WindowSizeMsg` is received — this is the standard bubbletea pattern for viewport initialisation.
+
+On every state-changing `Update()` (cursor move, expand toggle, window resize), `viewport.SetContent(renderer.RenderInteractive(snapshot, opts))` is called with the new opts before returning the updated model. `View()` does not call `RenderInteractive` directly; it only calls `viewport.View()`.
+
+If `len(items) == 0`, `opts.Cursor` is set to `nil` (no cursor guard needed in `View` itself).
 
 #### View
 
-`View()` calls `renderer.RenderInteractive(snapshot, RenderOpts{Cursor: &items[cursor], Expanded: expanded})` and passes the result into the bubbletea viewport for scrolling.
+`View()` returns `viewport.View()`. All content is set via `viewport.SetContent` in `Update`.
 
 #### Public API
 
