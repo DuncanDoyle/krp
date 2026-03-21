@@ -95,8 +95,9 @@ Signature:
 // Route.TypedPerFilterConfig is HTTPFilter.Name (e.g. "io.solo.transformation").
 // This is the same key already used by [Render] to detect per-route activation
 // of disabled-at-HCM filters. If Route.TypedPerFilterConfig[filter.Name] is
-// non-nil it is shown (per-route override); otherwise HTTPFilter.TypedConfig
-// (HCM-level config) is shown. If neither is set, "(no typed config)" is printed.
+// non-nil it is shown (per-route override) — including an empty map {}, which
+// is rendered as "{}"; otherwise HTTPFilter.TypedConfig (HCM-level config) is
+// shown (same non-nil check). If neither is set, "(no typed config)" is printed.
 //
 // Inline JSON is formatted with json.MarshalIndent using a two-space indent
 // and no line prefix (i.e. json.MarshalIndent(v, "", "  ")).
@@ -140,9 +141,11 @@ The canonical traversal order — shared by both `buildItems` and `RenderInterac
 
 1. `snapshot.Listeners` by index (outer loop)
 2. `listener.FilterChains` by index
-3. `filterChain.HCM.RouteConfig.VirtualHosts` by index
-4. `virtualHost.Routes` by index
-5. `hcm.HTTPFilters` by index (innermost — one `FilterRef` emitted per filter per route)
+3. Skip filter chains where `filterChain.HCM == nil` (same as `renderer.Render` — rendered as `[no HCM]`, no navigable filters)
+4. Skip filter chains where `filterChain.HCM.RouteConfig == nil` (rendered as `[RDS not found]`, no routes)
+5. `filterChain.HCM.RouteConfig.VirtualHosts` by index
+6. `virtualHost.Routes` by index
+7. `hcm.HTTPFilters` by index (innermost — one `FilterRef` emitted per filter per route)
 
 This order is defined here as the canonical contract. Both `buildItems` and `RenderInteractive` must follow it so that `items[N]` always corresponds to the N-th filter rendered on screen.
 
@@ -166,7 +169,9 @@ The model handles `tea.WindowSizeMsg` to set the viewport's width and height to 
 
 On every state-changing `Update()` (cursor move, expand toggle, window resize), `viewport.SetContent(renderer.RenderInteractive(snapshot, opts))` is called with the new opts before returning the updated model. `View()` does not call `RenderInteractive` directly; it only calls `viewport.View()`.
 
-If `len(items) == 0`, `opts.Cursor` is set to `nil` (no cursor guard needed in `View` itself).
+If `len(items) == 0`, `opts.Cursor` is set to `nil`. `RenderInteractive` is always called with a valid `*FilterRef` (i.e. `&items[cursor]` where `0 <= cursor < len(items)`) or a nil pointer — never a `FilterRef` pointing outside the snapshot. Since `items` is built from the same snapshot passed to `RenderInteractive`, and the snapshot is immutable during the TUI session, out-of-bounds cursor access cannot occur.
+
+After `SetContent`, scroll to keep the cursor item visible: compute the approximate line offset of the cursor item in the rendered output and call `viewport.SetYOffset` if the cursor line falls outside the current viewport window. The exact line-counting implementation is left to the implementer; a reasonable approximation (e.g. cursor line ≈ `cursor * averageLinesPerItem`) is sufficient for Phase 3.
 
 #### View
 
@@ -217,11 +222,13 @@ Extend `renderer_test.go` with unit tests for `RenderInteractive`:
 | Single item expanded — per-route config | Per-route JSON is shown inline |
 | Single item expanded — HCM-level fallback | HCM-level JSON is shown when no per-route config |
 | Single item expanded — no typed config | `(no typed config)` is shown |
+| Single item expanded — empty map config `{}` | `{}` is shown (empty map is treated as "has config") |
 | All expanded (`a` key effect) | All expandable items show their config |
+| Filter chain with nil HCM | No crash; nil-HCM filter chains produce no items and are not rendered with cursor/expansion |
 
 ### `internal/tui`
 
-Unit test `buildItems` against a known snapshot: verify count and ordering without starting the bubbletea program.
+Unit test `buildItems` against a known snapshot: verify count and ordering without starting the bubbletea program. Include a test case with a nil-HCM filter chain to verify it is skipped.
 
 Full TUI integration tests are not included — bubbletea programs are not easily driven headlessly.
 
@@ -233,10 +240,12 @@ All existing tests in `internal/renderer`, `internal/parser`, `internal/filter` 
 
 ## Dependencies
 
-- `github.com/charmbracelet/bubbletea` — already used indirectly via lipgloss; must be added as a direct dependency.
-- `github.com/charmbracelet/bubbles/viewport` — bubbletea viewport component for scrollable output.
+- `github.com/charmbracelet/bubbletea` **v1.x** — new direct dependency (minimum v1.0.0; compatible with lipgloss v1.1.0 and the `charmbracelet/x/*` packages already in `go.mod`).
+- `github.com/charmbracelet/bubbles` **v0.20.x** — new direct dependency; provides `viewport.Model`. Use `github.com/charmbracelet/bubbles/viewport`, not a separate module.
 
-Both are part of the Charm ecosystem already partially in use (`lipgloss`). No unrelated new dependencies.
+Both are part of the Charm ecosystem already partially in use (`lipgloss v1.1.0`). No unrelated new dependencies.
+
+**Style variable naming:** `renderer_interactive.go` introduces a `cursorStyle` package-level variable. The implementer must verify it does not conflict with the existing style variables in `renderer.go` (listenerStyle, filterChainLabelStyle, tlsStyle, etc.). If a conflict exists, prefix with `interactive` (e.g. `interactiveCursorStyle`).
 
 ---
 
