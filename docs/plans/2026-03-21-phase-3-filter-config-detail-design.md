@@ -85,7 +85,12 @@ Signature:
 
 ```go
 // RenderInteractive produces the same styled tree as [Render] with two
-// additions driven by opts:
+// additions driven by opts. It reuses the same internal render helpers
+// (renderListener, renderFilterChain, renderHCMContent, renderHTTPFilters,
+// renderRoutePolicies) so that the output with an empty RenderOpts is
+// byte-for-byte identical to [Render]. The cursor highlight and inline
+// typed-config expansion are injected only at the filter-name level inside
+// renderHTTPFilters, keeping all other rendering logic shared.
 //   - The item at opts.Cursor (if non-nil) is rendered with a cursorStyle
 //     (lipgloss.NewStyle().Reverse(true)) so the user can see where the cursor is.
 //   - For each item in opts.Expanded, the filter's typed config is printed
@@ -171,7 +176,7 @@ On every state-changing `Update()` (cursor move, expand toggle, window resize), 
 
 If `len(items) == 0`, `opts.Cursor` is set to `nil`. `RenderInteractive` is always called with a valid `*FilterRef` (i.e. `&items[cursor]` where `0 <= cursor < len(items)`) or a nil pointer — never a `FilterRef` pointing outside the snapshot. Since `items` is built from the same snapshot passed to `RenderInteractive`, and the snapshot is immutable during the TUI session, out-of-bounds cursor access cannot occur.
 
-After `SetContent`, scroll to keep the cursor item visible: compute the approximate line offset of the cursor item in the rendered output and call `viewport.SetYOffset` if the cursor line falls outside the current viewport window. The exact line-counting implementation is left to the implementer; a reasonable approximation (e.g. cursor line ≈ `cursor * averageLinesPerItem`) is sufficient for Phase 3.
+After `SetContent`, scroll to keep the cursor item visible: compute the approximate line offset of the cursor item in the rendered output and call `viewport.SetYOffset`. A reasonable approximation (e.g. cursor line ≈ `cursor * averageLinesPerItem`) is sufficient for Phase 3. `viewport.SetYOffset` clamps the offset to the content height internally, so passing an over-estimated value is safe and will not panic or produce incorrect output — the viewport will simply scroll to the end of the content.
 
 #### View
 
@@ -241,7 +246,7 @@ All existing tests in `internal/renderer`, `internal/parser`, `internal/filter` 
 ## Dependencies
 
 - `github.com/charmbracelet/bubbletea` **v1.x** — new direct dependency (minimum v1.0.0; compatible with lipgloss v1.1.0 and the `charmbracelet/x/*` packages already in `go.mod`).
-- `github.com/charmbracelet/bubbles` **v0.20.x** — new direct dependency; provides `viewport.Model`. Use `github.com/charmbracelet/bubbles/viewport`, not a separate module.
+- `github.com/charmbracelet/bubbles` **v0.21.x** — new direct dependency; provides `viewport.Model`. Minimum v0.21.0 — this is the first release that targets bubbletea v1.x (v0.20.x targets bubbletea v0.x and will produce a compile error when paired with bubbletea v1.x). Use `github.com/charmbracelet/bubbles/viewport`, not a separate module.
 
 Both are part of the Charm ecosystem already partially in use (`lipgloss v1.1.0`). No unrelated new dependencies.
 
