@@ -1,34 +1,34 @@
-Current Phase: Phase 2 — HTTPRoute Selector (COMPLETE)
+Current Phase: Phase 3 — Filter Config Detail (IN PROGRESS)
 
 ## Allowed Work
-- new filter package and CLI flags
-- route-name substring matching
-- tests for the filter layer
+- Expanding/collapsing typed filter config in the rendered output
+- Parsing `typed_per_filter_config` on route entries
+- Parsing filter-level config from HCM `http_filters`
+- Interactive TUI using bubbletea (select mode and all-expand mode)
+- Tests for the new interaction and rendering logic
 
 ## Disallowed Work
-- interactive TUI (bubbletea) — Phase 3
 - K8S API calls — Phase 4
-- architectural changes unrelated to the selector feature
+- K8S resource correlation — Phase 4
+- Architectural changes unrelated to filter config detail
 
 ## Issues
 
-No GitHub issues were opened for Phase 2 — all work was captured in the implementation plan.
+- **#11** (P2) — `prefix_rewrite` route action not captured (carry-over)
+- **#13** (P3) — `weighted_clusters` not captured (carry-over)
+- **#16** — RFE: `--rule <name>` when HTTPRoute rule name promoted to standard channel
+- **#17** — Collect multi-route config dumps for E2E filter tests
 
 ## Notes
 
-Phase 2 is complete. See `docs/plans/2026-03-17-phase-2-httproute-selector-design.md` and
-`docs/plans/2026-03-17-phase-2-httproute-selector-implementation.md` for the full record.
+Phase 3 goal: surface what each HTTP filter does by expanding its typed config inline in the TUI.
 
-### What was delivered
+Two interaction modes:
+- **Select mode** — navigate to a filter with arrow keys, press Enter to expand/collapse its typed config.
+- **All mode** — press `a` to expand/collapse config for all filters at once.
 
-- New `internal/filter` package with `Filter(snapshot, FilterOptions)` — pure function, no K8S calls.
-- `FilterOptions` carries `HTTPRouteName`, `HTTPRouteNamespace` (separate from Gateway namespace), and `RuleIndex`.
-- Substring matching on the kgateway route name convention `httproute-<name>-<namespace>-`.
-- Three new `krp dump` flags: `--route`, `--route-ns`, `--rule`.
-- 7 unit tests + 2 E2E tests against real config dumps.
+Typed config sources:
+- `typed_per_filter_config` on individual route entries (per-route filter overrides/activations)
+- Filter-level config in the HCM `http_filters` array (global filter config)
 
-### Deferred / open
-
-- **#11** (P2) — `prefix_rewrite` route action not captured (carried from Phase 1)
-- **#13** (P3) — `weighted_clusters` not captured (carried from Phase 1)
-- **#16** — RFE: support `--rule <name>` when HTTPRoute rule name field is promoted to standard channel
+See `docs/plans/krp-roadmap.md` for full phase context.
