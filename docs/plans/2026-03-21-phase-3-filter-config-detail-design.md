@@ -187,9 +187,19 @@ This order is defined here as the canonical contract. Both `buildItems` and `Ren
 | `a` | Expand/collapse all: if `len(items) == 0`, no-op. If `len(expanded) == len(items)` (all expanded), collapse all (clear the map). Otherwise expand all. |
 | `q` / `Ctrl+C` | Quit |
 
+#### Help bar
+
+A static one-line footer is rendered below the viewport in `View()`:
+
+```
+↑/↓ navigate • Enter/Space expand • a toggle all • q quit
+```
+
+The help bar is rendered with a dimmed style (e.g. `lipgloss.NewStyle().Foreground(lipgloss.Color("8"))`). It is always visible — no toggle needed.
+
 #### Viewport sizing
 
-The model handles `tea.WindowSizeMsg` to set the viewport's width and height to the current terminal dimensions. This is required by `bubbles/viewport` — without it the viewport has zero height and displays nothing. On startup before the first `WindowSizeMsg` arrives, the viewport is initialised with a default size (e.g. 80×24).
+The model handles `tea.WindowSizeMsg` to set the viewport's width and height. The viewport height is `termHeight - 1` (one line reserved for the help bar). Width is the full terminal width. This is required by `bubbles/viewport` — without explicit sizing the viewport has zero height and displays nothing. On startup before the first `WindowSizeMsg` arrives, the viewport is initialised with a default size of 80 wide × 23 tall (24 − 1 for the help bar).
 
 #### Init and viewport content
 
@@ -203,7 +213,7 @@ After `SetContent`, scroll to keep the cursor item visible by calling `viewport.
 
 #### View
 
-`View()` returns `viewport.View()`. All content is set via `viewport.SetContent` in `Update`.
+`View()` returns `viewport.View() + "\n" + helpBar`, where `helpBar` is the static dimmed keybinding footer. All tree content is set via `viewport.SetContent` in `Update`.
 
 #### Public API
 
