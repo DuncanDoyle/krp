@@ -243,6 +243,10 @@ fmt.Println(renderer.Render(snapshot))
 return nil
 ```
 
+`--interactive` composes naturally with `--route` / `--route-ns` / `--rule`: the HTTPRoute filter is applied to the snapshot before `tui.Run` is called, so the TUI shows only the filtered view.
+
+If `buildItems` returns an empty slice (e.g. the filtered snapshot has no HCM filters), `tui.Run` prints a one-line warning to stderr — `"no expandable filters found"` — and returns without launching the bubbletea program. The CLI exits cleanly with no further output.
+
 The command doc comment at the top of `main.go` is updated to include the new flag in the usage examples.
 
 ---
@@ -286,6 +290,10 @@ Both are part of the Charm ecosystem already partially in use (`lipgloss v1.1.0`
 **Style variable naming:** `renderer_interactive.go` introduces a `cursorStyle` package-level variable. The implementer must verify it does not conflict with the existing style variables in `renderer.go` (listenerStyle, filterChainLabelStyle, tlsStyle, etc.). If a conflict exists, prefix with `interactive` (e.g. `interactiveCursorStyle`).
 
 ---
+
+## Implementation Notes
+
+- `HTTPFilter.TypedConfig` has a stale comment in `internal/model/envoy.go` (`// raw typed config (for Phase 2)`). Update it to `// raw typed config; displayed in interactive mode (Phase 3)` during implementation.
 
 ## Deferred
 
