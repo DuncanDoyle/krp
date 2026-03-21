@@ -91,10 +91,17 @@ The internal helpers `renderHTTPFilters` and `renderHCMContent` are refactored i
 // interactiveContext carries cursor and expansion state into the internal
 // render helpers. A nil pointer means static mode — behaviour is identical
 // to the pre-Phase-3 code path.
+//
+// lineCount and cursorLine are mutable fields updated during rendering:
+// renderHTTPFilters increments lineCount for every line it writes, and
+// records cursorLine when it writes the cursor item's line. After rendering,
+// RenderInteractive reads cursorLine to compute the exact viewport offset.
 type interactiveContext struct {
-    ref      FilterRef           // coordinates of the current filter being rendered
-    cursor   *FilterRef          // nil = no cursor
-    expanded map[FilterRef]bool
+    ref        FilterRef           // coordinates of the current filter being rendered
+    cursor     *FilterRef          // nil = no cursor
+    expanded   map[FilterRef]bool
+    lineCount  int                 // running total of lines written so far
+    cursorLine int                 // line index of the cursor item (set during rendering)
 }
 ```
 
@@ -192,7 +199,7 @@ On every state-changing `Update()` (cursor move, expand toggle, window resize), 
 
 If `len(items) == 0`, `opts.Cursor` is set to `nil`. `RenderInteractive` is always called with a valid `*FilterRef` (i.e. `&items[cursor]` where `0 <= cursor < len(items)`) or a nil pointer — never a `FilterRef` pointing outside the snapshot. Since `items` is built from the same snapshot passed to `RenderInteractive`, and the snapshot is immutable during the TUI session, out-of-bounds cursor access cannot occur.
 
-After `SetContent`, scroll to keep the cursor item visible: compute the approximate line offset of the cursor item in the rendered output and call `viewport.SetYOffset`. A reasonable approximation (e.g. cursor line ≈ `cursor * averageLinesPerItem`) is sufficient for Phase 3. `viewport.SetYOffset` clamps the offset to the content height internally, so passing an over-estimated value is safe and will not panic or produce incorrect output — the viewport will simply scroll to the end of the content.
+After `SetContent`, scroll to keep the cursor item visible by calling `viewport.SetYOffset(ctx.cursorLine)`. The cursor line is tracked exactly by `interactiveContext.cursorLine` during rendering — `renderHTTPFilters` increments `ctx.lineCount` for every line written (including multi-line inline JSON) and records `ctx.cursorLine` when the cursor item is written. This is exact regardless of how many items are expanded or how large their JSON output is. `viewport.SetYOffset` clamps to content height internally, so there is no risk of panic or out-of-bounds access.
 
 #### View
 
