@@ -23,7 +23,9 @@ Parser → [Route Filter] → renderer.Render(snapshot)       (default, static)
 ```
 
 **Packages affected:**
-- `internal/renderer` — additive only: new `FilterRef`, `RenderOpts`, `RenderInteractive` in a new file; existing `renderer.go` is untouched.
+- `internal/renderer` — two changes:
+  1. New file `renderer_interactive.go`: `FilterRef`, `RenderOpts`, `RenderInteractive`.
+  2. `renderer.go`: `renderHTTPFilters` and `renderHCMContent` are refactored to accept an optional `*interactiveContext` (nil = static, byte-identical to current behaviour). `renderer.Render` is not modified.
 - `internal/tui` — new package; owns all bubbletea state.
 - `cmd/krp/main.go` — add `--interactive` / `-i` flag; branch on it in `runDump`.
 
@@ -83,14 +85,28 @@ type RenderOpts struct {
 
 Signature:
 
+The internal helpers `renderHTTPFilters` and `renderHCMContent` are refactored in `renderer.go` to accept an optional `*interactiveContext`:
+
+```go
+// interactiveContext carries cursor and expansion state into the internal
+// render helpers. A nil pointer means static mode — behaviour is identical
+// to the pre-Phase-3 code path.
+type interactiveContext struct {
+    ref      FilterRef           // coordinates of the current filter being rendered
+    cursor   *FilterRef          // nil = no cursor
+    expanded map[FilterRef]bool
+}
+```
+
+`Render` passes `nil` for the context, so its output is byte-for-byte identical to the pre-Phase-3 output. `RenderInteractive` builds an `interactiveContext` from `opts` and passes it through the call chain.
+
 ```go
 // RenderInteractive produces the same styled tree as [Render] with two
-// additions driven by opts. It reuses the same internal render helpers
-// (renderListener, renderFilterChain, renderHCMContent, renderHTTPFilters,
-// renderRoutePolicies) so that the output with an empty RenderOpts is
-// byte-for-byte identical to [Render]. The cursor highlight and inline
-// typed-config expansion are injected only at the filter-name level inside
-// renderHTTPFilters, keeping all other rendering logic shared.
+// additions driven by opts. renderHTTPFilters and renderHCMContent are
+// refactored to accept an optional *interactiveContext; passing nil
+// (as Render does) preserves the existing byte-identical output.
+// The cursor highlight and inline typed-config expansion are injected
+// only at the filter-name level inside renderHTTPFilters.
 //   - The item at opts.Cursor (if non-nil) is rendered with a cursorStyle
 //     (lipgloss.NewStyle().Reverse(true)) so the user can see where the cursor is.
 //   - For each item in opts.Expanded, the filter's typed config is printed
@@ -112,7 +128,7 @@ Signature:
 func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string
 ```
 
-`renderer.Render` remains the function it is today — no modifications.
+`renderer.Render` is not modified. `renderHTTPFilters` and `renderHCMContent` gain the optional `*interactiveContext` parameter but their nil-context code paths are unchanged.
 
 ---
 
