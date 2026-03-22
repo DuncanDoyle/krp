@@ -96,6 +96,10 @@ func (m *model) setContent() {
 	m.viewport.SetYOffset(findCursorLine(content))
 }
 
+// initialModel constructs the initial TUI model for the given snapshot.
+// It calls buildItems once to populate the flat navigation list and initialises
+// the viewport with default dimensions; the actual terminal size is applied when
+// the first tea.WindowSizeMsg is received in Update.
 func initialModel(snapshot *envoymodel.EnvoySnapshot) model {
 	vp := viewport.New(defaultWidth, defaultHeight)
 	m := model{
