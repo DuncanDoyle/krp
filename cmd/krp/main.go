@@ -9,6 +9,7 @@
 //	krp dump --gateway <name> -n <ns> --context ctx                                            # same, with an explicit kubeconfig context
 //	krp dump --file <path> --route <name> --route-ns <ns>                                       # filter by HTTPRoute
 //	krp dump --file <path> --route <name> --route-ns <ns> --rule 0                             # filter by rule index
+//	krp dump --file <path> --route <name> --route-ns <ns> --rule 0 --interactive            # interactive TUI mode with filter config expansion
 package main
 
 import (
@@ -20,6 +21,7 @@ import (
 	"github.com/DuncanDoyle/krp/internal/filter"
 	"github.com/DuncanDoyle/krp/internal/parser"
 	"github.com/DuncanDoyle/krp/internal/renderer"
+	"github.com/DuncanDoyle/krp/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +51,10 @@ func main() {
 	dump.Flags().String("route-ns", "", "Namespace of the HTTPRoute (required with --route; may differ from the Gateway namespace)")
 	dump.Flags().Int("rule", -1, "Zero-based rule index within the HTTPRoute (-1 = all rules, used with --route)")
 
+	// Interactive mode — launches a bubbletea TUI instead of printing static output.
+	// Composes with --route/--route-ns/--rule: the filter is applied before the TUI launches.
+	dump.Flags().BoolP("interactive", "i", false, "Launch the interactive TUI instead of printing static output")
+
 	root.AddCommand(dump)
 
 	if err := root.Execute(); err != nil {
@@ -70,6 +76,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	routeName, _ := cmd.Flags().GetString("route")
 	routeNS, _ := cmd.Flags().GetString("route-ns")
 	ruleIndex, _ := cmd.Flags().GetInt("rule")
+	interactive, _ := cmd.Flags().GetBool("interactive")
 
 	// Exactly one source must be specified; --gateway and --deployment are mutually exclusive.
 	if file == "" && gateway == "" && deployment == "" {
@@ -154,7 +161,10 @@ func runDump(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Render and print.
+	// Render and print — or launch the interactive TUI.
+	if interactive {
+		return tui.Run(snapshot)
+	}
 	fmt.Println(renderer.Render(snapshot))
 	return nil
 }
