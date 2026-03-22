@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/charmbracelet/bubbles"
-	_ "github.com/charmbracelet/bubbletea"
 	"github.com/DuncanDoyle/krp/internal/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 )
