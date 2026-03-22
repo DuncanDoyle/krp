@@ -18,12 +18,6 @@ Current Phase: Phase 4 — Gateway API DAG Printer (NOT STARTED)
 
 ## Issues
 
-### Phase 3.2 (test gaps — resolve before Phase 4 feature work)
-- **#18** — test: add RenderInteractive test covering cursor + expanded on same item
-- **#19** — test: add direct unit tests for resolveFilterConfig
-- **#20** — test: add richer static-equivalence regression test for RenderInteractive
-- **#21** — test: add buildItems test for HCM with empty HTTPFilters slice
-
 ### Carry-over (existing open issues)
 - **#11** (P2) — `prefix_rewrite` route action not captured
 - **#13** (P3) — `weighted_clusters` not captured (traffic splitting)
