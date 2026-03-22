@@ -2,7 +2,17 @@
 // [model.EnvoySnapshot].
 package renderer
 
-import "github.com/DuncanDoyle/krp/internal/model"
+import (
+	"strings"
+
+	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// cursorStyle highlights the filter row that currently holds the navigation cursor.
+// Reverse(true) emits the ANSI reverse-video escape (\x1b[7m), which the TUI
+// cursor-line finder in Task 4 uses to locate the highlighted row.
+var cursorStyle = lipgloss.NewStyle().Reverse(true)
 
 // FilterRef uniquely identifies a single HTTP filter instance as rendered
 // under a specific route. The Envoy path is:
@@ -40,6 +50,24 @@ type interactiveContext struct {
 	expanded map[FilterRef]bool
 }
 
+// resolveFilterConfig returns the typed config to display for an expanded filter.
+// It returns Route.TypedPerFilterConfig[filter.Name] if non-nil (per-route override),
+// otherwise HTTPFilter.TypedConfig. Returns nil if neither is set.
+//
+// An empty map[string]any{} is NOT nil in Go, so a route that sets an empty
+// per-route config entry is treated as "has config" and will render as "{}".
+func resolveFilterConfig(f model.HTTPFilter, typedPerFilterConfig map[string]any) any {
+	if typedPerFilterConfig != nil {
+		if v, ok := typedPerFilterConfig[f.Name]; ok && v != nil {
+			return v
+		}
+	}
+	if f.TypedConfig != nil {
+		return f.TypedConfig
+	}
+	return nil
+}
+
 // RenderInteractive produces the same styled tree as [Render] with two
 // additions driven by opts. renderHTTPFilters and renderHCMContent are
 // refactored to accept an optional *interactiveContext; passing nil (as
@@ -56,6 +84,20 @@ type interactiveContext struct {
 //
 // RenderInteractive is a pure function — it performs no I/O.
 func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string {
-	// Implemented in Task 3
-	panic("not implemented")
+	if len(snapshot.Listeners) == 0 {
+		return warningStyle.Render("No listeners found in config dump.")
+	}
+
+	ctx := &interactiveContext{
+		cursor:   opts.Cursor,
+		expanded: opts.Expanded,
+	}
+
+	var panels []string
+	for i, listener := range snapshot.Listeners {
+		ctx.ref.ListenerIdx = i
+		panels = append(panels, renderListener(listener, ctx))
+	}
+
+	return strings.Join(panels, "\n")
 }

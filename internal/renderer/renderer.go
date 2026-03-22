@@ -8,6 +8,7 @@
 package renderer
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -202,6 +203,11 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string, c
 // typedPerFilterConfig is the route's per-filter config: if a filter is disabled at HCM
 // level but has an entry here, it is actually active on this route and shown as enabled.
 // ctx carries cursor/expansion state; nil means static mode (no behaviour change).
+//
+// In interactive mode, the item whose coordinates match ctx.cursor is highlighted
+// with cursorStyle (ANSI reverse-video). Items in ctx.expanded have their typed
+// config appended inline as indented JSON, with resolveFilterConfig selecting
+// the per-route override over the HCM-level config.
 func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerFilterConfig map[string]any, indent string, ctx *interactiveContext) {
 	if len(filters) == 0 {
 		return
@@ -218,15 +224,43 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 			ctx.ref.FilterIdx = i
 		}
 
-		// A filter disabled at HCM level may still be active on this route via
-		// typed_per_filter_config — in that case, do not render it as disabled.
 		activeOnRoute := typedPerFilterConfig != nil && typedPerFilterConfig[f.Name] != nil
-		label := filterStyle.Render(f.Name)
+
+		// Build the base label text (preserving disabled state).
+		labelText := f.Name
 		if f.Disabled && !activeOnRoute {
-			label = disabledStyle.Render(f.Name + " (disabled)")
+			labelText = f.Name + " (disabled)"
+		}
+
+		// Apply cursor highlight or normal style.
+		var label string
+		if ctx != nil && ctx.cursor != nil && ctx.ref == *ctx.cursor {
+			label = cursorStyle.Render(labelText)
+		} else if f.Disabled && !activeOnRoute {
+			label = disabledStyle.Render(labelText)
+		} else {
+			label = filterStyle.Render(labelText)
 		}
 
 		b.WriteString(fmt.Sprintf("%s%s [%d] %s\n", indent, prefix, i+1, label))
+
+		// Render expanded typed config if this item is in the expanded set.
+		if ctx != nil && ctx.expanded[ctx.ref] {
+			config := resolveFilterConfig(f, typedPerFilterConfig)
+			var configLines []string
+			if config != nil {
+				jsonBytes, err := json.MarshalIndent(config, "", "  ")
+				if err == nil {
+					configLines = strings.Split(string(jsonBytes), "\n")
+				}
+			}
+			if len(configLines) == 0 {
+				configLines = []string{"(no typed config)"}
+			}
+			for _, line := range configLines {
+				b.WriteString(fmt.Sprintf("%s    %s\n", indent, line))
+			}
+		}
 	}
 }
 
