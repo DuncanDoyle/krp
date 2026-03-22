@@ -1,5 +1,3 @@
-// Package renderer provides static and interactive rendering of an
-// [model.EnvoySnapshot].
 package renderer
 
 import (
