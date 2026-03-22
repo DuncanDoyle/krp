@@ -148,6 +148,7 @@ func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int,
 func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string, ctx *interactiveContext) {
 	if hcm.RouteConfig == nil {
 		b.WriteString(fmt.Sprintf("%s%s\n", indent, warningStyle.Render("[RDS not found: "+hcm.RouteConfigName+"]")))
+		// No route context here, so no per-route filter config available.
 		renderHTTPFilters(b, hcm.HTTPFilters, nil, indent, ctx)
 		return
 	}
