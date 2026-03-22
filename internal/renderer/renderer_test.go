@@ -700,6 +700,31 @@ func TestRenderInteractive_NilHCM(t *testing.T) {
 	}
 }
 
+// TestRenderInteractive_CursorAndExpanded verifies the combined case: the cursor sits on a filter
+// that is also expanded. Both the ANSI reverse-video cursor highlight and the typed config content
+// must appear in the output simultaneously.
+func TestRenderInteractive_CursorAndExpanded(t *testing.T) {
+	snapshot := interactiveSnapshot() // first filter has HCM-level TypedConfig
+	ref := renderer.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
+	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{
+		Cursor:   &ref,
+		Expanded: map[renderer.FilterRef]bool{ref: true},
+	})
+
+	// Cursor highlight must be present (reverse-video ANSI code).
+	if !strings.Contains(output, "\x1b[7m") {
+		t.Errorf("expected ANSI reverse-video cursor highlight (\\x1b[7m) in output\nOutput:\n%s", output)
+	}
+	// Typed config content must also be present (HCM-level fallback for this filter).
+	if !strings.Contains(output, "RouteTransformations") {
+		t.Errorf("expected HCM-level TypedConfig 'RouteTransformations' in output when expanded\nOutput:\n%s", output)
+	}
+	// The filter name itself must still appear.
+	if !strings.Contains(output, "io.solo.transformation") {
+		t.Errorf("expected filter name 'io.solo.transformation' in output\nOutput:\n%s", output)
+	}
+}
+
 // routeSnapshotWithMatch constructs a minimal EnvoySnapshot with one route using the given match.
 // Shared helper for match-type renderer tests.
 func routeSnapshotWithMatch(match model.RouteMatch) *model.EnvoySnapshot {
