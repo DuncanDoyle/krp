@@ -700,6 +700,109 @@ func TestRenderInteractive_NilHCM(t *testing.T) {
 	}
 }
 
+// TestRenderInteractive_NoOpts_RicherSnapshot guards the invariant
+// RenderInteractive(snapshot, RenderOpts{}) == Render(snapshot) for a snapshot
+// that exercises more of the rendering code: two listeners, a TLS filter chain,
+// a disabled filter active on one route via TypedPerFilterConfig, multiple virtual
+// hosts, and routes with header match conditions.
+func TestRenderInteractive_NoOpts_RicherSnapshot(t *testing.T) {
+	snapshot := &model.EnvoySnapshot{
+		Listeners: []model.Listener{
+			{
+				Name:    "listener~80",
+				Address: "[::]:80",
+				FilterChains: []model.NetworkFilterChain{
+					{
+						HCM: &model.HCMConfig{
+							RouteConfigName: "listener~80",
+							HTTPFilters: []model.HTTPFilter{
+								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "envoy.filters.http.router"},
+							},
+							RouteConfig: &model.RouteConfig{
+								Name: "listener~80",
+								VirtualHosts: []model.VirtualHost{
+									{
+										Name:    "vh-api",
+										Domains: []string{"api.example.com"},
+										Routes: []model.Route{
+											{
+												Match:   model.RouteMatch{Prefix: "/v1"},
+												Cluster: "kube_default_backend_8080",
+												// Disabled filter is active on this route.
+												TypedPerFilterConfig: map[string]any{
+													"io.solo.transformation": map[string]any{
+														"@type": "type.googleapis.com/solo.transformation",
+													},
+												},
+											},
+											{
+												Match: model.RouteMatch{
+													Prefix:  "/v2",
+													Headers: []model.HeaderMatch{{Name: "x-version", Value: "2"}},
+												},
+												Cluster: "kube_default_backend-v2_8080",
+											},
+										},
+									},
+									{
+										Name:    "vh-internal",
+										Domains: []string{"internal.example.com"},
+										Routes: []model.Route{
+											{
+												Match:   model.RouteMatch{Prefix: "/"},
+												Cluster: "kube_default_internal_9090",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:    "listener~443",
+				Address: "[::]:443",
+				FilterChains: []model.NetworkFilterChain{
+					{
+						Name: "https-api",
+						TLS:  &model.TLSContext{SNIHosts: []string{"api.example.com"}},
+						HCM: &model.HCMConfig{
+							RouteConfigName: "https-api",
+							HTTPFilters: []model.HTTPFilter{
+								{Name: "envoy.filters.http.cors", Disabled: true},
+								{Name: "envoy.filters.http.router"},
+							},
+							RouteConfig: &model.RouteConfig{
+								Name: "https-api",
+								VirtualHosts: []model.VirtualHost{
+									{
+										Name:    "vh-secure",
+										Domains: []string{"api.example.com"},
+										Routes: []model.Route{
+											{
+												Match:   model.RouteMatch{Prefix: "/"},
+												Cluster: "kube_default_backend_8443",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	static := renderer.Render(snapshot)
+	interactive := renderer.RenderInteractive(snapshot, renderer.RenderOpts{})
+	if static != interactive {
+		t.Errorf("expected RenderInteractive with empty opts to equal Render output for richer snapshot\nRender:\n%s\nRenderInteractive:\n%s", static, interactive)
+	}
+}
+
 // TestRenderInteractive_CursorAndExpanded verifies the combined case: the cursor sits on a filter
 // that is also expanded. Both the ANSI reverse-video cursor highlight and the typed config content
 // must appear in the output simultaneously.
