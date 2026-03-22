@@ -267,7 +267,7 @@ Extend `renderer_test.go` with unit tests for `RenderInteractive`:
 
 ### `internal/tui`
 
-Unit test `buildItems` against a known snapshot: verify count and ordering without starting the bubbletea program. Include a test case with a nil-HCM filter chain to verify it is skipped.
+Unit test `buildItems` against a known snapshot: verify count and ordering without starting the bubbletea program. Include a test case with a nil-HCM filter chain to verify it is skipped. Unit test `findCursorLine` with table-driven cases (cursor on first line, cursor on Nth line, no cursor present, empty content).
 
 Full TUI integration tests are not included — bubbletea programs are not easily driven headlessly.
 

@@ -495,7 +495,7 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 }
 ```
 
-Note: `encoding/json` must be imported in `renderer_interactive.go` (or `renderer.go`). Add to the import block of the file where `resolveFilterConfig` is defined.
+Note: `encoding/json` must be added to the import block of `renderer.go` (where the updated `renderHTTPFilters` lives). `"strings"` is already imported there.
 
 - [ ] **Step 1: Write the failing tests in renderer_test.go**
 
@@ -843,7 +843,7 @@ func findCursorLine(content string) int {
 
 ```go
 // Package tui provides the interactive bubbletea TUI for krp.
-// It wraps an [model.EnvoySnapshot] in a scrollable, navigable terminal
+// It wraps an [envoymodel.EnvoySnapshot] in a scrollable, navigable terminal
 // UI where the user can expand HTTP filter typed configs inline.
 package tui
 
@@ -852,7 +852,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DuncanDoyle/krp/internal/model"
+	envoymodel "github.com/DuncanDoyle/krp/internal/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -870,7 +870,7 @@ const helpText = "↑/↓ navigate • Enter/Space expand • a toggle all • q
 
 // model holds all mutable state for the interactive TUI session.
 type model struct {
-	snapshot *model.EnvoySnapshot
+	snapshot *envoymodel.EnvoySnapshot
 	items    []renderer.FilterRef
 	cursor   int
 	expanded map[renderer.FilterRef]bool
@@ -883,7 +883,7 @@ type model struct {
 //
 // Filter chains with a nil HCM or a nil RouteConfig are skipped — they produce
 // no navigable filters (same as the renderer, which shows "[no HCM]" / "[RDS not found]").
-func buildItems(snapshot *model.EnvoySnapshot) []renderer.FilterRef {
+func buildItems(snapshot *envoymodel.EnvoySnapshot) []renderer.FilterRef {
 	var items []renderer.FilterRef
 	for lIdx, listener := range snapshot.Listeners {
 		for fcIdx, fc := range listener.FilterChains {
@@ -940,7 +940,7 @@ func (m *model) setContent() {
 	m.viewport.SetYOffset(findCursorLine(content))
 }
 
-func initialModel(snapshot *model.EnvoySnapshot) model {
+func initialModel(snapshot *envoymodel.EnvoySnapshot) model {
 	vp := viewport.New(defaultWidth, defaultHeight)
 	m := model{
 		snapshot: snapshot,
@@ -1030,7 +1030,7 @@ func (m model) View() string {
 // to stderr and returns immediately (without launching the bubbletea program)
 // if the snapshot contains no navigable filters. It blocks until the user quits
 // (q or Ctrl+C) and returns any bubbletea program error.
-func Run(snapshot *model.EnvoySnapshot) error {
+func Run(snapshot *envoymodel.EnvoySnapshot) error {
 	m := initialModel(snapshot)
 	if len(m.items) == 0 {
 		fmt.Fprintln(os.Stderr, "no expandable filters found")
@@ -1054,31 +1054,31 @@ package tui
 import (
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/model"
+	envoymodel "github.com/DuncanDoyle/krp/internal/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 )
 
 // TestBuildItems_SimpleSnapshot verifies that buildItems produces one FilterRef
 // per filter per route, in the canonical traversal order.
 func TestBuildItems_SimpleSnapshot(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
-		Listeners: []model.Listener{
+	snapshot := &envoymodel.EnvoySnapshot{
+		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
-				FilterChains: []model.NetworkFilterChain{
+				FilterChains: []envoymodel.NetworkFilterChain{
 					{
-						HCM: &model.HCMConfig{
+						HCM: &envoymodel.HCMConfig{
 							RouteConfigName: "listener~80",
-							HTTPFilters: []model.HTTPFilter{
+							HTTPFilters: []envoymodel.HTTPFilter{
 								{Name: "io.solo.transformation"},
 								{Name: "envoy.filters.http.router"},
 							},
-							RouteConfig: &model.RouteConfig{
-								VirtualHosts: []model.VirtualHost{
+							RouteConfig: &envoymodel.RouteConfig{
+								VirtualHosts: []envoymodel.VirtualHost{
 									{
-										Routes: []model.Route{
-											{Match: model.RouteMatch{Prefix: "/"}},
-											{Match: model.RouteMatch{Prefix: "/api"}},
+										Routes: []envoymodel.Route{
+											{Match: envoymodel.RouteMatch{Prefix: "/"}},
+											{Match: envoymodel.RouteMatch{Prefix: "/api"}},
 										},
 									},
 								},
@@ -1113,11 +1113,11 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 
 // TestBuildItems_NilHCM verifies that filter chains with a nil HCM are skipped.
 func TestBuildItems_NilHCM(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
-		Listeners: []model.Listener{
+	snapshot := &envoymodel.EnvoySnapshot{
+		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
-				FilterChains: []model.NetworkFilterChain{
+				FilterChains: []envoymodel.NetworkFilterChain{
 					{Name: "no-hcm", HCM: nil},
 				},
 			},
@@ -1133,15 +1133,15 @@ func TestBuildItems_NilHCM(t *testing.T) {
 
 // TestBuildItems_NilRouteConfig verifies that filter chains with a nil RouteConfig are skipped.
 func TestBuildItems_NilRouteConfig(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
-		Listeners: []model.Listener{
+	snapshot := &envoymodel.EnvoySnapshot{
+		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
-				FilterChains: []model.NetworkFilterChain{
+				FilterChains: []envoymodel.NetworkFilterChain{
 					{
-						HCM: &model.HCMConfig{
+						HCM: &envoymodel.HCMConfig{
 							RouteConfigName: "listener~80",
-							HTTPFilters:     []model.HTTPFilter{{Name: "envoy.filters.http.router"}},
+							HTTPFilters:     []envoyenvoymodel.HTTPFilter{{Name: "envoy.filters.http.router"}},
 							RouteConfig:     nil, // no route config
 						},
 					},
@@ -1159,9 +1159,48 @@ func TestBuildItems_NilRouteConfig(t *testing.T) {
 
 // TestBuildItems_EmptySnapshot verifies that an empty snapshot produces no items.
 func TestBuildItems_EmptySnapshot(t *testing.T) {
-	items := buildItems(&model.EnvoySnapshot{})
+	items := buildItems(&envoymodel.EnvoySnapshot{})
 	if len(items) != 0 {
 		t.Errorf("expected 0 items for empty snapshot, got %d", len(items))
+	}
+}
+
+// TestFindCursorLine verifies that findCursorLine correctly locates the
+// cursor line by counting newlines before the ANSI reverse-video code.
+func TestFindCursorLine(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "cursor on first line",
+			content: "\x1b[7mhighlighted\x1b[0m\nsecond line\n",
+			want:    0,
+		},
+		{
+			name:    "cursor on third line",
+			content: "line 0\nline 1\n\x1b[7mhighlighted\x1b[0m\nline 3\n",
+			want:    2,
+		},
+		{
+			name:    "no cursor present",
+			content: "line 0\nline 1\nline 2\n",
+			want:    0,
+		},
+		{
+			name:    "empty content",
+			content: "",
+			want:    0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findCursorLine(tt.content)
+			if got != tt.want {
+				t.Errorf("findCursorLine() = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 ```
@@ -1184,7 +1223,7 @@ Write the complete `tui.go` file as shown above.
 go test ./internal/tui/... -v
 ```
 
-Expected: all 4 `TestBuildItems_*` tests PASS.
+Expected: all 4 `TestBuildItems_*` tests and `TestFindCursorLine` PASS.
 
 - [ ] **Step 5: Run the full test suite — no regressions**
 
@@ -1264,13 +1303,13 @@ Expected: binary produced, no errors.
 
 Expected: the first few lines of the rendered output (listener header, filter chain, etc.).
 
-- [ ] **Step 4: Smoke test — empty items warning**
+- [ ] **Step 4: Smoke test — interactive TUI launches**
 
 ```bash
-./krp dump --file testdata/scenarios/01-simple/config_dump.json --interactive 2>&1 | grep "no expandable"
+./krp dump --file testdata/scenarios/01-simple/config_dump.json --interactive
 ```
 
-If the 01-simple config has no expandable filters (i.e. no TypedConfig on any filter), this should print `"no expandable filters found"` and exit. If it does have filters, the TUI will launch — quit with `q`.
+The TUI should launch (the "no expandable filters found" message only appears when the snapshot has zero filter chains with HCM + RouteConfig, not when filters lack typed config). Verify the TUI renders the tree, then quit with `q`.
 
 - [ ] **Step 5: Run the full test suite**
 
