@@ -77,25 +77,28 @@ func Render(snapshot *model.EnvoySnapshot) string {
 
 	var panels []string
 	for _, listener := range snapshot.Listeners {
-		panels = append(panels, renderListener(listener))
+		panels = append(panels, renderListener(listener, nil))
 	}
 
 	return strings.Join(panels, "\n")
 }
 
 // renderListener renders a single listener and all its filter chains as a
-// lipgloss-bordered panel.
-func renderListener(l model.Listener) string {
+// lipgloss-bordered panel. ctx carries cursor/expansion state for interactive
+// mode; nil means static mode (identical output to pre-Phase-3).
+func renderListener(l model.Listener, ctx *interactiveContext) string {
 	var b strings.Builder
 
-	// Title line
 	title := listenerTitleStyle.Render(fmt.Sprintf("Listener: %s", l.Name))
 	addr := domainStyle.Render(l.Address)
 	b.WriteString(fmt.Sprintf("%s %s\n", title, addr))
 
 	for i, fc := range l.FilterChains {
 		isLast := i == len(l.FilterChains)-1
-		renderFilterChain(&b, fc, i, isLast)
+		if ctx != nil {
+			ctx.ref.FilterChainIdx = i
+		}
+		renderFilterChain(&b, fc, i, isLast, ctx)
 	}
 
 	return listenerStyle.Render(b.String())
@@ -104,8 +107,9 @@ func renderListener(l model.Listener) string {
 // renderFilterChain appends the tree representation of a single NetworkFilterChain
 // to b. idx is the zero-based position within the listener and is used for the
 // display label (FilterChain[N]). isLast controls which tree connector character
-// is used (└─ for the last item, ├─ for others).
-func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int, isLast bool) {
+// is used (└─ for the last item, ├─ for others). ctx carries cursor/expansion
+// state; nil means static mode.
+func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int, isLast bool, ctx *interactiveContext) {
 	prefix := treeT
 	childPrefix := treeI
 	if isLast {
@@ -113,7 +117,6 @@ func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int,
 		childPrefix = treeSpc
 	}
 
-	// Filter chain label with optional TLS info
 	label := filterChainLabelStyle.Render(fmt.Sprintf("FilterChain[%d]", idx))
 	if fc.Name != "" {
 		label += " " + domainStyle.Render(fc.Name)
@@ -128,11 +131,10 @@ func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int,
 		return
 	}
 
-	// HCM → RDS reference
 	b.WriteString(fmt.Sprintf("%s  %s HCM %s RDS: %s\n",
 		childPrefix, treeL, domainStyle.Render("→"), fc.HCM.RouteConfigName))
 
-	renderHCMContent(b, fc.HCM, childPrefix+treeSpc+"  ")
+	renderHCMContent(b, fc.HCM, childPrefix+treeSpc+"  ", ctx)
 }
 
 // renderHCMContent renders the HTTP filter pipeline and route tree for a single
@@ -142,12 +144,11 @@ func renderFilterChain(b *strings.Builder, fc model.NetworkFilterChain, idx int,
 // The HCM-level HTTP filter list is shared across all routes; per-route filter
 // overrides are expressed via each route's TypedPerFilterConfig, which is passed
 // to [renderHTTPFilters] so disabled-at-HCM filters can be shown as active where
-// the route opts in.
-func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
+// the route opts in. ctx carries cursor/expansion state; nil means static mode.
+func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string, ctx *interactiveContext) {
 	if hcm.RouteConfig == nil {
 		b.WriteString(fmt.Sprintf("%s%s\n", indent, warningStyle.Render("[RDS not found: "+hcm.RouteConfigName+"]")))
-		// No route context here, so no per-route filter config available
-		renderHTTPFilters(b, hcm.HTTPFilters, nil, indent)
+		renderHTTPFilters(b, hcm.HTTPFilters, nil, indent, ctx)
 		return
 	}
 
@@ -158,6 +159,9 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 		if isLastVH {
 			vhPrefix = treeL
 			vhChildPrefix = treeSpc
+		}
+		if ctx != nil {
+			ctx.ref.VirtualHostIdx = i
 		}
 
 		domains := domainStyle.Render(fmt.Sprintf("[%s]", strings.Join(vh.Domains, ", ")))
@@ -173,21 +177,18 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 				routePrefix = treeL
 				routeChildPrefix = treeSpc
 			}
+			if ctx != nil {
+				ctx.ref.RouteIdx = j
+			}
 
 			matchStr := formatMatch(route.Match)
 			b.WriteString(fmt.Sprintf("%s%s Route: %s\n",
 				routeIndent, routePrefix, matchStyle.Render(matchStr)))
 
 			filterIndent := routeIndent + routeChildPrefix + "  "
-
-			// HTTP filters for this route (pass typed_per_filter_config so disabled-at-HCM
-			// filters that are active on this route are not shown as disabled)
-			renderHTTPFilters(b, hcm.HTTPFilters, route.TypedPerFilterConfig, filterIndent)
-
-			// Route-level policies (HTTPRouteFilter header/mirror configs)
+			renderHTTPFilters(b, hcm.HTTPFilters, route.TypedPerFilterConfig, filterIndent, ctx)
 			renderRoutePolicies(b, route, filterIndent)
 
-			// Backend cluster
 			if route.Cluster != "" {
 				b.WriteString(fmt.Sprintf("%sBackend: %s\n",
 					filterIndent, clusterStyle.Render(route.Cluster)))
@@ -199,7 +200,8 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string) {
 // renderHTTPFilters renders the HCM-level HTTP filter pipeline for a specific route.
 // typedPerFilterConfig is the route's per-filter config: if a filter is disabled at HCM
 // level but has an entry here, it is actually active on this route and shown as enabled.
-func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerFilterConfig map[string]any, indent string) {
+// ctx carries cursor/expansion state; nil means static mode (no behaviour change).
+func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerFilterConfig map[string]any, indent string, ctx *interactiveContext) {
 	if len(filters) == 0 {
 		return
 	}
@@ -210,6 +212,9 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 		prefix := treeT
 		if isLast {
 			prefix = treeL
+		}
+		if ctx != nil {
+			ctx.ref.FilterIdx = i
 		}
 
 		// A filter disabled at HCM level may still be active on this route via
