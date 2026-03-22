@@ -114,6 +114,57 @@ func TestBuildItems_EmptySnapshot(t *testing.T) {
 	}
 }
 
+// TestBuildItems_MultipleListeners verifies that ListenerIdx and FilterChainIdx
+// are tracked correctly when the snapshot has more than one listener and more
+// than one filter chain.
+func TestBuildItems_MultipleListeners(t *testing.T) {
+	hcm := func(name string) *envoymodel.HCMConfig {
+		return &envoymodel.HCMConfig{
+			RouteConfigName: name,
+			HTTPFilters:     []envoymodel.HTTPFilter{{Name: "envoy.filters.http.router"}},
+			RouteConfig: &envoymodel.RouteConfig{
+				VirtualHosts: []envoymodel.VirtualHost{
+					{Routes: []envoymodel.Route{{Match: envoymodel.RouteMatch{Prefix: "/"}}}},
+				},
+			},
+		}
+	}
+
+	snapshot := &envoymodel.EnvoySnapshot{
+		Listeners: []envoymodel.Listener{
+			{
+				Name: "listener~80",
+				FilterChains: []envoymodel.NetworkFilterChain{
+					{HCM: hcm("listener~80-fc0")},
+					{HCM: hcm("listener~80-fc1")},
+				},
+			},
+			{
+				Name:         "listener~443",
+				FilterChains: []envoymodel.NetworkFilterChain{{HCM: hcm("listener~443-fc0")}},
+			},
+		},
+	}
+
+	items := buildItems(snapshot)
+
+	// 2 filter chains in listener 0 + 1 in listener 1 = 3 items (1 filter, 1 route each)
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+
+	expected := []renderer.FilterRef{
+		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
+		{ListenerIdx: 0, FilterChainIdx: 1, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
+		{ListenerIdx: 1, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
+	}
+	for i, got := range items {
+		if got != expected[i] {
+			t.Errorf("items[%d]: got %+v, want %+v", i, got, expected[i])
+		}
+	}
+}
+
 // TestFindCursorLine verifies that findCursorLine correctly locates the
 // cursor line by counting newlines before the ANSI reverse-video code.
 func TestFindCursorLine(t *testing.T) {
