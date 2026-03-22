@@ -25,7 +25,8 @@ CLI that parses a raw Envoy config dump (from file or live port-forward) and ren
 Add K8S awareness to select a specific HTTPRoute and optionally a rule index. Uses the deterministic route naming convention (`httproute-<name>-<ns>`) embedded in Envoy route names to filter the view down to only the relevant listeners/routes/filters for that HTTPRoute.
 
 ### Phase 3 — Filter Config Detail
-**Status:** Not started
+**Status:** Complete (patch cycles 3.1, 3.2 applied)
+**Docs:** `2026-03-21-phase-3-filter-config-detail-design.md`, `2026-03-21-phase-3-filter-config-detail-implementation.md`
 
 Add the ability to see what each filter does. Two interaction modes:
 - **Select mode** — navigate to a filter, Enter to expand/collapse its typed config

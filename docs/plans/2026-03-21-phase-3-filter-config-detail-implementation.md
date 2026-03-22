@@ -1,6 +1,6 @@
 # Phase 3 — Filter Config Detail Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add `--interactive`/`-i` flag to `krp dump` that launches a bubbletea TUI where the user can navigate to any HTTP filter and expand its typed config inline as pretty-printed JSON; static output remains the default and is unchanged.
 
@@ -31,7 +31,7 @@
 - Modify: `go.mod`, `go.sum` (via `go get`)
 - Modify: `internal/model/envoy.go:45`
 
-- [ ] **Step 1: Add bubbletea and bubbles**
+- [x] **Step 1: Add bubbletea and bubbles**
 
 ```bash
 cd /Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude
@@ -42,7 +42,7 @@ go mod tidy
 
 Expected: both packages added to `go.mod`. Verify `go.mod` now contains entries for `github.com/charmbracelet/bubbletea` (v1.x) and `github.com/charmbracelet/bubbles` (v0.21.x or later). `go mod tidy` removes any unused indirect deps and ensures `go.sum` is consistent.
 
-- [ ] **Step 2: Verify existing tests still pass**
+- [x] **Step 2: Verify existing tests still pass**
 
 ```bash
 go test ./...
@@ -50,7 +50,7 @@ go test ./...
 
 Expected: all five packages pass — `internal/envoy`, `internal/filter`, `internal/model`, `internal/parser`, `internal/renderer`.
 
-- [ ] **Step 3: Fix stale comment in model/envoy.go**
+- [x] **Step 3: Fix stale comment in model/envoy.go**
 
 In `internal/model/envoy.go`, line 45, change:
 ```go
@@ -61,7 +61,7 @@ to:
 TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
 ```
 
-- [ ] **Step 4: Verify model tests still pass**
+- [x] **Step 4: Verify model tests still pass**
 
 ```bash
 go test ./internal/model/... -v
@@ -69,7 +69,7 @@ go test ./internal/model/... -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add go.mod go.sum internal/model/envoy.go
@@ -130,7 +130,7 @@ for i, vh := range hcm.RouteConfig.VirtualHosts {
 
 `renderHTTPFilters` updates `ctx.ref.FilterIdx = i` for each filter (used in Task 3).
 
-- [ ] **Step 1: Add the interactiveContext struct to renderer_interactive.go**
+- [x] **Step 1: Add the interactiveContext struct to renderer_interactive.go**
 
 Create `internal/renderer/renderer_interactive.go` with only the types (no `RenderInteractive` function yet):
 
@@ -198,7 +198,7 @@ func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [x] **Step 2: Verify it compiles**
 
 ```bash
 go build ./internal/renderer/...
@@ -206,7 +206,7 @@ go build ./internal/renderer/...
 
 Expected: compiles (the panic body is valid Go).
 
-- [ ] **Step 3: Refactor renderer.go — update the four function signatures**
+- [x] **Step 3: Refactor renderer.go — update the four function signatures**
 
 Update `renderListener`, `renderFilterChain`, `renderHCMContent`, and `renderHTTPFilters` in `renderer.go` to accept `ctx *interactiveContext`. Add coordinate-tracking nil-guards. The `Render` function passes `nil` at every call site — its body does not change beyond calling `renderListener(listener, nil)`.
 
@@ -364,7 +364,7 @@ func Render(snapshot *model.EnvoySnapshot) string {
 }
 ```
 
-- [ ] **Step 4: Run all renderer tests — must all pass**
+- [x] **Step 4: Run all renderer tests — must all pass**
 
 ```bash
 go test ./internal/renderer/... -v
@@ -372,7 +372,7 @@ go test ./internal/renderer/... -v
 
 Expected: all existing tests PASS. Zero output changes — this is a pure refactor.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/renderer/renderer.go internal/renderer/renderer_interactive.go
@@ -497,7 +497,7 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 
 Note: `encoding/json` must be added to the import block of `renderer.go` (where the updated `renderHTTPFilters` lives). `"strings"` is already imported there.
 
-- [ ] **Step 1: Write the failing tests in renderer_test.go**
+- [x] **Step 1: Write the failing tests in renderer_test.go**
 
 Add the following test functions after the existing tests. Use the shared `routeSnapshotWithMatch` helper already in the file for the simple cases, and build richer snapshots inline where needed.
 
@@ -757,7 +757,7 @@ func TestRenderInteractive_NilHCM(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the new tests — they must FAIL**
+- [x] **Step 2: Run the new tests — they must FAIL**
 
 ```bash
 go test ./internal/renderer/... -v -run TestRenderInteractive
@@ -765,13 +765,13 @@ go test ./internal/renderer/... -v -run TestRenderInteractive
 
 Expected: FAIL — `TestRenderInteractive_NoOpts` fails because `RenderInteractive` panics.
 
-- [ ] **Step 3: Implement RenderInteractive in renderer_interactive.go**
+- [x] **Step 3: Implement RenderInteractive in renderer_interactive.go**
 
 Replace the `panic("not implemented")` body with the full implementation. Add the `cursorStyle` var, `resolveFilterConfig` helper, and the full `RenderInteractive` body as shown in the implementation notes above. Add `"encoding/json"` and `"strings"` to the imports.
 
 Also update `renderHTTPFilters` in `renderer.go` to replace the Task 2 version with the full version that includes cursor + expansion logic (as shown in the implementation notes).
 
-- [ ] **Step 4: Run the new tests — they must all PASS**
+- [x] **Step 4: Run the new tests — they must all PASS**
 
 ```bash
 go test ./internal/renderer/... -v -run TestRenderInteractive
@@ -779,7 +779,7 @@ go test ./internal/renderer/... -v -run TestRenderInteractive
 
 Expected: all 8 `TestRenderInteractive_*` tests PASS.
 
-- [ ] **Step 5: Run the full renderer test suite — no regressions**
+- [x] **Step 5: Run the full renderer test suite — no regressions**
 
 ```bash
 go test ./internal/renderer/... -v
@@ -787,7 +787,7 @@ go test ./internal/renderer/... -v
 
 Expected: all tests PASS (existing + new).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/renderer/renderer_interactive.go internal/renderer/renderer.go internal/renderer/renderer_test.go
@@ -1044,7 +1044,7 @@ func Run(snapshot *envoymodel.EnvoySnapshot) error {
 }
 ```
 
-- [ ] **Step 1: Write the failing buildItems tests**
+- [x] **Step 1: Write the failing buildItems tests**
 
 Create `internal/tui/tui_test.go`:
 
@@ -1205,7 +1205,7 @@ func TestFindCursorLine(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the new tests — they must FAIL**
+- [x] **Step 2: Run the new tests — they must FAIL**
 
 ```bash
 go test ./internal/tui/... -v
@@ -1213,11 +1213,11 @@ go test ./internal/tui/... -v
 
 Expected: FAIL — package `tui` does not exist yet.
 
-- [ ] **Step 3: Create internal/tui/tui.go with the full implementation**
+- [x] **Step 3: Create internal/tui/tui.go with the full implementation**
 
 Write the complete `tui.go` file as shown above.
 
-- [ ] **Step 4: Run the buildItems tests — they must PASS**
+- [x] **Step 4: Run the buildItems tests — they must PASS**
 
 ```bash
 go test ./internal/tui/... -v
@@ -1225,7 +1225,7 @@ go test ./internal/tui/... -v
 
 Expected: all 4 `TestBuildItems_*` tests and `TestFindCursorLine` PASS.
 
-- [ ] **Step 5: Run the full test suite — no regressions**
+- [x] **Step 5: Run the full test suite — no regressions**
 
 ```bash
 go test ./...
@@ -1233,7 +1233,7 @@ go test ./...
 
 Expected: all packages PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/tui/tui.go internal/tui/tui_test.go
@@ -1247,7 +1247,7 @@ git commit -m "feat: implement internal/tui package with bubbletea model and bui
 **Files:**
 - Modify: `cmd/krp/main.go`
 
-- [ ] **Step 1: Add the flag and branch**
+- [x] **Step 1: Add the flag and branch**
 
 In `main.go`, add the flag registration after the existing `--rule` flag:
 
@@ -1287,7 +1287,7 @@ Update the package doc comment at the top of `main.go` to add a usage example fo
 //	krp dump --gateway <name> -n <ns> --interactive                                       # live fetch + interactive TUI
 ```
 
-- [ ] **Step 2: Build and verify it compiles**
+- [x] **Step 2: Build and verify it compiles**
 
 ```bash
 go build ./cmd/krp/...
@@ -1295,7 +1295,7 @@ go build ./cmd/krp/...
 
 Expected: binary produced, no errors.
 
-- [ ] **Step 3: Smoke test — static mode still works**
+- [x] **Step 3: Smoke test — static mode still works**
 
 ```bash
 ./krp dump --file testdata/scenarios/01-simple/config_dump.json 2>/dev/null | head -5
@@ -1303,7 +1303,7 @@ Expected: binary produced, no errors.
 
 Expected: the first few lines of the rendered output (listener header, filter chain, etc.).
 
-- [ ] **Step 4: Smoke test — interactive TUI launches**
+- [x] **Step 4: Smoke test — interactive TUI launches**
 
 ```bash
 ./krp dump --file testdata/scenarios/01-simple/config_dump.json --interactive
@@ -1311,7 +1311,7 @@ Expected: the first few lines of the rendered output (listener header, filter ch
 
 The TUI should launch (the "no expandable filters found" message only appears when the snapshot has zero filter chains with HCM + RouteConfig, not when filters lack typed config). Verify the TUI renders the tree, then quit with `q`.
 
-- [ ] **Step 5: Run the full test suite**
+- [x] **Step 5: Run the full test suite**
 
 ```bash
 go test ./...
@@ -1319,7 +1319,7 @@ go test ./...
 
 Expected: all packages PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add cmd/krp/main.go
@@ -1330,7 +1330,7 @@ git commit -m "feat: add --interactive/-i flag to krp dump for bubbletea TUI mod
 
 ## Final Verification
 
-- [ ] Run the complete test suite one last time:
+- [x] Run the complete test suite one last time:
 
 ```bash
 go test ./... -count=1
@@ -1338,13 +1338,13 @@ go test ./... -count=1
 
 Expected: all packages PASS with no cached results.
 
-- [ ] Build the final binary:
+- [x] Build the final binary:
 
 ```bash
 go build -o krp ./cmd/krp/
 ```
 
-- [ ] Run `krp dump --help` and verify `--interactive` appears in the flag list:
+- [x] Run `krp dump --help` and verify `--interactive` appears in the flag list:
 
 ```bash
 ./krp dump --help
