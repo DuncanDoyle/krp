@@ -42,7 +42,7 @@ type HCMConfig struct {
 // HTTPFilter is a single filter in the HTTP filter pipeline.
 type HTTPFilter struct {
 	Name        string         `json:"name"`                  // e.g. "io.solo.transformation"
-	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config (for Phase 2)
+	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
 	Disabled    bool           `json:"disabled,omitempty"`    // filter disabled at HCM level, enabled per-route
 }
 
