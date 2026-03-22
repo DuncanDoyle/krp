@@ -165,6 +165,43 @@ func TestBuildItems_MultipleListeners(t *testing.T) {
 	}
 }
 
+// TestBuildItems_EmptyHTTPFilters verifies that a filter chain whose HCM has a
+// non-nil RouteConfig and routes but an empty HTTPFilters slice produces no items.
+// The inner loop over fc.HCM.HTTPFilters simply yields nothing, so buildItems
+// must return an empty slice rather than panicking or emitting partial refs.
+func TestBuildItems_EmptyHTTPFilters(t *testing.T) {
+	snapshot := &envoymodel.EnvoySnapshot{
+		Listeners: []envoymodel.Listener{
+			{
+				Name: "listener~80",
+				FilterChains: []envoymodel.NetworkFilterChain{
+					{
+						HCM: &envoymodel.HCMConfig{
+							RouteConfigName: "listener~80",
+							HTTPFilters:     []envoymodel.HTTPFilter{}, // empty — not nil
+							RouteConfig: &envoymodel.RouteConfig{
+								VirtualHosts: []envoymodel.VirtualHost{
+									{
+										Routes: []envoymodel.Route{
+											{Match: envoymodel.RouteMatch{Prefix: "/"}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	items := buildItems(snapshot)
+
+	if len(items) != 0 {
+		t.Errorf("expected 0 items for snapshot with empty HTTPFilters, got %d: %v", len(items), items)
+	}
+}
+
 // TestFindCursorLine verifies that findCursorLine correctly locates the
 // cursor line by counting newlines before the ANSI reverse-video code.
 func TestFindCursorLine(t *testing.T) {
