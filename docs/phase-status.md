@@ -1,4 +1,4 @@
-Current Phase: Phase 3.4 — Interactive Mode Viewport Scroll Fix (follow-up)
+Current Phase: Phase 3.5 — Interactive Mode Smooth Scrolling
 
 ## Allowed Work
 - bug fixes
@@ -11,8 +11,8 @@ Current Phase: Phase 3.4 — Interactive Mode Viewport Scroll Fix (follow-up)
 
 ## Issues
 
-### In Scope (Phase 3.4)
-1. **#23** — `fix: in interactive mode, scrolling back up does not reach the top of the configuration` ← **CURRENT**
+### In Scope (Phase 3.5)
+1. **#24** — `fix: smooth scrolling when navigating back to the top in interactive mode` ← **CURRENT**
 
 ### Carry-over (existing open issues, deferred to Phase 4+)
 - **#11** (P2) — `prefix_rewrite` route action not captured
@@ -22,4 +22,4 @@ Current Phase: Phase 3.4 — Interactive Mode Viewport Scroll Fix (follow-up)
 
 ## Notes
 
-Phase 3.4 is a follow-up to 3.3 (#22). After 3.3, navigating back up to cursor item 0 scrolls the viewport to show the cursor line but not the headers above it. The fix: when `cursor == 0`, reset viewport offset to 0 unconditionally.
+Phase 3.5 replaces the abrupt jump-to-top from 3.4 with smooth line-by-line scrolling. `setContent()` reverts to pure `scrollToCursor` for all cursor positions; the ↑ key at cursor=0 with YOffset>0 decrements YOffset by 1 instead of being a no-op.

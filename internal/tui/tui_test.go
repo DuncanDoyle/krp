@@ -8,6 +8,7 @@ import (
 	envoymodel "github.com/DuncanDoyle/krp/internal/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 )
@@ -216,21 +217,11 @@ func TestBuildItems_EmptyHTTPFilters(t *testing.T) {
 	}
 }
 
-// TestSetContent_CursorAtFirstItem_ResetsOffset is the regression test for
-// issue #23: after the viewport has been scrolled down by navigating to a later
-// item, returning to cursor item 0 must reset the viewport offset to 0 so that
-// Listener/FilterChain/HCM headers above the first navigable filter are visible.
-//
-// The snapshot deliberately has many routes so that the rendered output is long
-// enough for the viewport to scroll meaningfully (viewport height is set to 3
-// to ensure scrolling occurs). The test first navigates to the last item to
-// scroll the viewport down, then returns to item 0 and asserts YOffset == 0.
-func TestSetContent_CursorAtFirstItem_ResetsOffset(t *testing.T) {
-	// 10 routes × 1 filter = 10 items; rendered content will be ~25+ lines.
-	routes := make([]envoymodel.Route, 10)
-	for i := range routes {
-		routes[i] = envoymodel.Route{Match: envoymodel.RouteMatch{Prefix: "/"}}
-	}
+// TestUpdate_UpKey_AtFirstItem_ScrollsViewportUp is the regression test for
+// issue #24: when the cursor is at item 0 and the viewport is still scrolled
+// down (YOffset > 0), pressing ↑ must decrement YOffset by 1 so the user can
+// glide smoothly to the top of the configuration line by line.
+func TestUpdate_UpKey_AtFirstItem_ScrollsViewportUp(t *testing.T) {
 	snapshot := &envoymodel.EnvoySnapshot{
 		Listeners: []envoymodel.Listener{
 			{
@@ -241,7 +232,9 @@ func TestSetContent_CursorAtFirstItem_ResetsOffset(t *testing.T) {
 							RouteConfigName: "listener~80",
 							HTTPFilters:     []envoymodel.HTTPFilter{{Name: "envoy.filters.http.router"}},
 							RouteConfig: &envoymodel.RouteConfig{
-								VirtualHosts: []envoymodel.VirtualHost{{Routes: routes}},
+								VirtualHosts: []envoymodel.VirtualHost{
+									{Routes: []envoymodel.Route{{Match: envoymodel.RouteMatch{Prefix: "/"}}}},
+								},
 							},
 						},
 					},
@@ -250,28 +243,70 @@ func TestSetContent_CursorAtFirstItem_ResetsOffset(t *testing.T) {
 		},
 	}
 
-	items := buildItems(snapshot)
-	vp := viewport.New(80, 3) // narrow viewport so navigation causes scrolling
+	vp := viewport.New(80, 10)
 	m := model{
 		snapshot: snapshot,
-		items:    items,
-		cursor:   len(items) - 1, // start at last item
+		items:    buildItems(snapshot),
+		cursor:   0,
 		expanded: make(map[renderer.FilterRef]bool),
 		viewport: vp,
 	}
 
-	// Render with cursor at last item — the viewport should scroll down.
-	m.setContent()
-	if m.viewport.YOffset == 0 {
-		t.Fatal("test precondition failed: viewport did not scroll down when cursor was at last item; increase snapshot size")
+	// Seed content so the viewport can accept a non-zero offset.
+	m.viewport.SetContent(strings.Repeat("line\n", 30))
+	m.viewport.SetYOffset(5)
+
+	// Press ↑ — cursor is at 0 so the viewport should scroll up by one line.
+	upMsg := tea.KeyMsg{Type: tea.KeyUp}
+	updated, _ := m.Update(upMsg)
+	m = updated.(model)
+
+	if m.viewport.YOffset != 4 {
+		t.Errorf("↑ at cursor=0 with YOffset=5: expected YOffset=4, got %d", m.viewport.YOffset)
+	}
+}
+
+// TestUpdate_UpKey_AtFirstItem_AtTop_IsNoop verifies that pressing ↑ when the
+// cursor is at item 0 and the viewport is already at the top (YOffset==0) is a
+// no-op and does not produce a negative offset.
+func TestUpdate_UpKey_AtFirstItem_AtTop_IsNoop(t *testing.T) {
+	snapshot := &envoymodel.EnvoySnapshot{
+		Listeners: []envoymodel.Listener{
+			{
+				Name: "listener~80",
+				FilterChains: []envoymodel.NetworkFilterChain{
+					{
+						HCM: &envoymodel.HCMConfig{
+							RouteConfigName: "listener~80",
+							HTTPFilters:     []envoymodel.HTTPFilter{{Name: "envoy.filters.http.router"}},
+							RouteConfig: &envoymodel.RouteConfig{
+								VirtualHosts: []envoymodel.VirtualHost{
+									{Routes: []envoymodel.Route{{Match: envoymodel.RouteMatch{Prefix: "/"}}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
-	// Navigate back to the first item — setContent() must reset offset to 0.
-	m.cursor = 0
-	m.setContent()
+	vp := viewport.New(80, 10)
+	m := model{
+		snapshot: snapshot,
+		items:    buildItems(snapshot),
+		cursor:   0,
+		expanded: make(map[renderer.FilterRef]bool),
+		viewport: vp,
+	}
+
+	// Press ↑ from the very top — YOffset must stay at 0.
+	upMsg := tea.KeyMsg{Type: tea.KeyUp}
+	updated, _ := m.Update(upMsg)
+	m = updated.(model)
 
 	if m.viewport.YOffset != 0 {
-		t.Errorf("setContent() with cursor=0: expected YOffset=0 after scrolling back up, got %d", m.viewport.YOffset)
+		t.Errorf("↑ at cursor=0 with YOffset=0: expected YOffset=0 (no-op), got %d", m.viewport.YOffset)
 	}
 }
 

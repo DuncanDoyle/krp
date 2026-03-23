@@ -105,19 +105,10 @@ func (m *model) scrollToCursor(cursorLine int) {
 
 // setContent re-renders the snapshot with the current interactive state and
 // sets the viewport content. Called on every state change.
-//
-// When the cursor is at item 0 the viewport is reset to offset 0 so that
-// Listener/FilterChain/HCM headers rendered above the first navigable filter
-// are always visible when the user navigates back to the top. For all other
-// cursor positions [scrollToCursor] is used to keep the cursor in view.
 func (m *model) setContent() {
 	content := renderer.RenderInteractive(m.snapshot, m.renderOpts())
 	m.viewport.SetContent(content)
-	if m.cursor == 0 {
-		m.viewport.SetYOffset(0)
-	} else {
-		m.scrollToCursor(findCursorLine(content))
-	}
+	m.scrollToCursor(findCursorLine(content))
 }
 
 // initialModel constructs the initial TUI model for the given snapshot.
@@ -159,6 +150,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 				m.setContent()
+			} else if m.viewport.YOffset > 0 {
+				// Cursor is already at the first item; continue scrolling the
+				// viewport up line by line so that Listener/FilterChain/HCM
+				// headers above the first filter are revealed smoothly.
+				m.viewport.SetYOffset(m.viewport.YOffset - 1)
 			}
 			return m, nil
 
