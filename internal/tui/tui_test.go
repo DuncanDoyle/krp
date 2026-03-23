@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	envoymodel "github.com/DuncanDoyle/krp/internal/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
+	"github.com/charmbracelet/bubbles/viewport"
 )
 
 // TestBuildItems_SimpleSnapshot verifies that buildItems produces one FilterRef
@@ -199,6 +201,53 @@ func TestBuildItems_EmptyHTTPFilters(t *testing.T) {
 
 	if len(items) != 0 {
 		t.Errorf("expected 0 items for snapshot with empty HTTPFilters, got %d: %v", len(items), items)
+	}
+}
+
+// TestScrollToCursor_CursorInViewport verifies that the viewport offset is not
+// changed when the cursor line is already within the visible area.
+// This is the regression test for issue #22: on first render the cursor sits a
+// few lines into the content (after Listener/FilterChain headers), and the
+// viewport must stay at offset 0 so those headers are visible and scrollable.
+func TestScrollToCursor_CursorInViewport(t *testing.T) {
+	m := model{
+		viewport: viewport.New(80, 23),
+	}
+	// Cursor is at line 5, which is within the 23-line viewport (offset 0).
+	m.scrollToCursor(5)
+	if m.viewport.YOffset != 0 {
+		t.Errorf("scrollToCursor(5): expected YOffset=0 (cursor already in view), got %d", m.viewport.YOffset)
+	}
+}
+
+// TestScrollToCursor_CursorAboveViewport verifies that the viewport scrolls up
+// when the cursor line is above the current top of the visible area.
+func TestScrollToCursor_CursorAboveViewport(t *testing.T) {
+	m := model{
+		viewport: viewport.New(80, 10),
+	}
+	// Provide enough content for the viewport to allow scrolling.
+	m.viewport.SetContent(strings.Repeat("line\n", 30))
+	m.viewport.SetYOffset(10) // viewport currently shows lines 10–19
+	m.scrollToCursor(5)       // cursor at line 5, above the visible top
+	if m.viewport.YOffset != 5 {
+		t.Errorf("scrollToCursor(5): expected YOffset=5, got %d", m.viewport.YOffset)
+	}
+}
+
+// TestScrollToCursor_CursorBelowViewport verifies that the viewport scrolls down
+// when the cursor line is below the bottom of the visible area.
+func TestScrollToCursor_CursorBelowViewport(t *testing.T) {
+	m := model{
+		viewport: viewport.New(80, 10),
+	}
+	// Provide enough content for the viewport to allow scrolling (cursor at 15 needs ≥16 lines).
+	m.viewport.SetContent(strings.Repeat("line\n", 30))
+	// Viewport at offset 0 shows lines 0–9; cursor at line 15 is out of view.
+	m.scrollToCursor(15)
+	// Expected: SetYOffset(15 - 10 + 1) = 6 so cursor appears at the bottom of viewport.
+	if m.viewport.YOffset != 6 {
+		t.Errorf("scrollToCursor(15): expected YOffset=6, got %d", m.viewport.YOffset)
 	}
 }
 

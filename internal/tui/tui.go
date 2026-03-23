@@ -88,12 +88,27 @@ func (m model) renderOpts() renderer.RenderOpts {
 	}
 }
 
+// scrollToCursor adjusts the viewport offset to keep cursorLine visible
+// without moving the viewport when the cursor is already in view.
+// If the cursor is above the top of the viewport it scrolls up; if it is
+// below the bottom it scrolls down; otherwise the offset is left unchanged.
+// This preserves access to content rendered above the first navigable item
+// (e.g. Listener and FilterChain headers) that would otherwise be hidden if
+// the viewport were unconditionally pinned to the cursor line.
+func (m *model) scrollToCursor(cursorLine int) {
+	if cursorLine < m.viewport.YOffset {
+		m.viewport.SetYOffset(cursorLine)
+	} else if cursorLine >= m.viewport.YOffset+m.viewport.Height {
+		m.viewport.SetYOffset(cursorLine - m.viewport.Height + 1)
+	}
+}
+
 // setContent re-renders the snapshot with the current interactive state and
 // sets the viewport content. Called on every state change.
 func (m *model) setContent() {
 	content := renderer.RenderInteractive(m.snapshot, m.renderOpts())
 	m.viewport.SetContent(content)
-	m.viewport.SetYOffset(findCursorLine(content))
+	m.scrollToCursor(findCursorLine(content))
 }
 
 // initialModel constructs the initial TUI model for the given snapshot.
