@@ -1,4 +1,4 @@
-Current Phase: Phase 3.3 — Interactive Mode Viewport Scroll Fix
+Current Phase: Phase 3.4 — Interactive Mode Viewport Scroll Fix (follow-up)
 
 ## Allowed Work
 - bug fixes
@@ -11,8 +11,8 @@ Current Phase: Phase 3.3 — Interactive Mode Viewport Scroll Fix
 
 ## Issues
 
-### In Scope (Phase 3.3)
-1. **#22** — `fix: in interactive mode, the top of the config dump is not visible and cannot be scrolled to` ← **CURRENT**
+### In Scope (Phase 3.4)
+1. **#23** — `fix: in interactive mode, scrolling back up does not reach the top of the configuration` ← **CURRENT**
 
 ### Carry-over (existing open issues, deferred to Phase 4+)
 - **#11** (P2) — `prefix_rewrite` route action not captured
@@ -22,4 +22,4 @@ Current Phase: Phase 3.3 — Interactive Mode Viewport Scroll Fix
 
 ## Notes
 
-Phase 3.3 fixes a correctness bug in the interactive TUI (`internal/tui/tui.go`): the viewport was unconditionally pinned to the cursor line, hiding all content rendered above the first navigable filter (Listener, FilterChain, HCM headers). The fix replaces the "pin cursor to top" strategy with "scroll only when cursor leaves the visible area".
+Phase 3.4 is a follow-up to 3.3 (#22). After 3.3, navigating back up to cursor item 0 scrolls the viewport to show the cursor line but not the headers above it. The fix: when `cursor == 0`, reset viewport offset to 0 unconditionally.
